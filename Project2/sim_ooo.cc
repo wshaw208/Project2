@@ -111,7 +111,8 @@ void sim_ooo::print_memory(unsigned start_address, unsigned end_address){
 	} 
 }
 
-void sim_ooo::write_memory(unsigned address, unsigned value){
+void sim_ooo::write_memory(unsigned address, unsigned value)
+{
 	unsigned2char(value,data_memory+address);
 }
 
@@ -175,3 +176,101 @@ unsigned sim_ooo::get_clock_cycles(){
 	return UNDEFINED; //fill here
 }
 
+unsigned sim_ooo::get_register_value(std::string str)
+{
+	unsigned rIndex = str.find_first_of('R');
+	string reg = str.substr(rIndex + 1);
+	int value = strtoul(reg.c_str(), NULL, 10);
+	return value;
+}
+
+unsigned sim_ooo::get_first_letter(std::string str, unsigned start)
+
+{
+	unsigned index = start;
+	unsigned i;
+	for (i = start; i < str.length(); i++)
+	{
+		if (str[i] != '	' && str[i] != ' ')
+		{
+			index = i;
+			break;
+		}
+	}
+	return index;
+}
+
+unsigned sim_ooo::find_end_of_argument(std::string str, unsigned start)
+{
+	unsigned index = start;
+	unsigned i;
+	for (i = start; i < str.length(); i++)
+	{
+		if (str[i] == '	' || str[i] == ' ')
+		{
+			index = i;
+			break;
+		}
+	}
+	if (i == str.length())
+	{
+		index = str.length() + 1;
+	}
+	return index;
+}
+
+int sim_ooo::convert_string_to_number(std::string str)
+{
+	int imm = 0;
+	if (str.find('b') < str.length())
+	{
+		str = str.substr(2);
+		imm = strtoul(str.c_str(), NULL, 2);
+	}
+	else if ((str.find('x') < str.length()) || (str.find('X') < str.length()))
+	{
+		str = str.substr(2);
+		imm = strtoul(str.c_str(), NULL, 16);
+	}
+	else if (str.find('d') < str.length())
+	{
+		str = str.substr(2);
+		imm = strtoul(str.c_str(), NULL, 10);
+	}
+	else
+	{
+		str = str.substr(0);
+		imm = strtoul(str.c_str(), NULL, 10);
+	}
+	return imm;
+}
+
+bool sim_ooo::branchIf(unsigned opcode, unsigned a)
+{
+	bool condition = false;
+	if (opcode == BEQZ && a == 0)
+	{
+		condition = true;
+	}
+	else if (opcode == BNEZ && a != 0)
+	{
+		condition = true;
+	}
+	else if (opcode == BLTZ && a < 0)
+	{
+		condition = true;
+	}
+	else if (opcode == BGTZ && a > 0)
+	{
+		condition = true;
+	}
+	else if (opcode == BLEZ && a <= 0)
+	{
+		condition = true;
+	}
+	else if (opcode == BGEZ && a >= 0)
+	{
+		condition = true;
+	}
+	return condition;
+}

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string>
+#include <string.h>
 #include <sstream>
 
 using namespace std;
@@ -12,14 +13,15 @@ using namespace std;
 #define NUM_GP_REGISTERS 32
 #define NUM_OPCODES 28
 #define NUM_STAGES 4
+#define BTABLE 50 //size of table for recording branche labels
 
-typedef enum {LW, SW, ADD, ADDI, SUB, SUBI, XOR, XORI, OR, ORI, AND, ANDI, MULT, DIV, BEQZ, BNEZ, BLTZ, BGTZ, BLEZ, BGEZ, JUMP, EOP, LWS, SWS, ADDS, SUBS, MULTS, DIVS} opcode_t;
+typedef enum {LW = 1, SW = 2, ADD = 3, ADDI = 4, SUB = 5, SUBI = 06, XOR = 7, XORI = 8, OR = 9, ORI = 10, AND = 11, ANDI = 12, MULT = 13, DIV = 14, BEQZ = 15, BNEZ = 16, BLTZ = 17, BGTZ = 18, BLEZ = 19, BGEZ = 20, JUMP = 21, EOP = 22, LWS = 23, SWS = 24, ADDS = 25, SUBS = 26, MULTS = 27, DIVS = 28} opcode_t;
 
-typedef enum {INTEGER_RS, ADD_RS, MULT_RS, LOAD_B} res_station_t;
+typedef enum {INTEGER_RS = 1, ADD_RS = 2, MULT_RS = 3, LOAD_B = 4} res_station_t;
 
-typedef enum {INTEGER, ADDER, MULTIPLIER, DIVIDER, MEMORY} exe_unit_t;
+typedef enum {INTEGER = 1, ADDER = 2, MULTIPLIER = 3, DIVIDER = 4, MEMORY = 5} exe_unit_t;
 
-typedef enum{ISSUE, EXECUTE, WRITE_RESULT, COMMIT} stage_t;
+typedef enum{ISSUE = 1, EXECUTE = 2, WRITE_RESULT = 3, COMMIT = 4} stage_t;
 
 
 class sim_ooo{
@@ -31,7 +33,23 @@ class sim_ooo{
 
 	//memory size in bytes
 	unsigned data_memory_size;
-	
+	unsigned instruction_memory_size;
+	unsigned pc;
+	unsigned base_Address;
+
+	//instruction memory
+	unsigned int *instruction_memory;
+
+	unsigned i_reg[NUM_GP_REGISTERS];
+	unsigned f_reg[NUM_GP_REGISTERS];
+	unsigned opcode[NUM_OPCODES];
+
+	float clock_cycles;
+	float instruction_count;
+	float stalls;
+
+	bool eop;
+	bool stalled;
 public:
 
 	/* Instantiates the simulator
@@ -119,6 +137,24 @@ public:
 
 	//print the whole execution history 
 	void print_log();
+
+	//returns the decimal value/address of a register
+	unsigned get_register_value(std::string str);
+
+	//returns the index of the first letter/number in the string
+	unsigned get_first_letter(std::string str, unsigned start);
+
+	//returns the index of the next space or tab
+	unsigned find_end_of_argument(std::string str, unsigned start);
+
+	//returns the int value of a string
+	int convert_string_to_number(std::string str);
+
+	void print_instruction_memory(unsigned start_address, unsigned end_address);
+
+	//returns true if opcode condition and matches the value of a
+	//returns false if not
+	bool branchIf(unsigned opcode, unsigned a);
 };
 
 #endif /*SIM_OOO_H_*/
