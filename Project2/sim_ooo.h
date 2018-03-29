@@ -40,8 +40,8 @@ class sim_ooo{
 	//instruction memory
 	unsigned int *instruction_memory;
 
-	unsigned i_reg[NUM_GP_REGISTERS];
-	unsigned f_reg[NUM_GP_REGISTERS];
+	unsigned r_reg[NUM_GP_REGISTERS];
+	float f_reg[NUM_GP_REGISTERS];
 	unsigned opcode[NUM_OPCODES];
 
 	float clock_cycles;

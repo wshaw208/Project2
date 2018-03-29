@@ -18,6 +18,12 @@
     <None Include="Makefile">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="asm\code_ooo.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="asm\code_ooo2.asm">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sim_ooo.cc">
