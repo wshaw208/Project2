@@ -50,6 +50,8 @@ class sim_ooo{
 
 	bool eop;
 	bool stalled;
+
+	unsigned issue_max;
 public:
 
 	/* Instantiates the simulator
@@ -155,6 +157,14 @@ public:
 	//returns true if opcode condition and matches the value of a
 	//returns false if not
 	bool branchIf(unsigned opcode, unsigned a);
+
+	void issue();
+
+	void execute();
+
+	void write_result();
+
+	void commit();
 };
 
 #endif /*SIM_OOO_H_*/

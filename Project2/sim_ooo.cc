@@ -14,6 +14,51 @@ static const char *stage_names[NUM_STAGES] = {"ISSUE", "EXE", "WR", "COMMIT"};
 static const char *instr_names[NUM_OPCODES] = {"LW", "SW", "ADD", "ADDI", "SUB", "SUBI", "XOR", "XORI", "OR", "ORI", "AND", "ANDI", "MULT", "DIV", "BEQZ", "BNEZ", "BLTZ", "BGTZ", "BLEZ", "BGEZ", "JUMP", "EOP", "LWS", "SWS", "ADDS", "SUBS", "MULTS", "DIVS"};
 static const char *res_station_names[5]={"Int", "Add", "Mult", "Load"};
 
+struct reservation_station
+{
+	string name;
+	bool busy = false;
+	unsigned opcode;
+	int vj, vk;
+	float vjf, vkf;
+	string qj, qk, dest;
+	unsigned a;
+};
+
+struct ex_unit
+{
+	string name;
+	bool busy = false;
+	unsigned opcode;
+	int vj, vk;
+	float vjf, vkf;
+	int ttf, delay; //ttf time-to-finish
+};
+
+struct read_order_buffer
+{
+	unsigned entry;
+	bool busy, ready;
+	string instruction;
+	string state;
+	string destination;
+	int value;
+	float value_f;
+};
+
+reservation_station* int_rs;
+reservation_station* add_rs;
+reservation_station* mult_rs;
+reservation_station* load_rs;
+
+ex_unit* int_ex;
+ex_unit* add_ex;
+ex_unit* mult_ex;
+ex_unit* div_ex;
+ex_unit* mem_ex;
+
+read_order_buffer* rob;
+
 /* convert a float into an unsigned */
 inline unsigned float2unsigned(float value){
         unsigned result;
@@ -53,6 +98,31 @@ sim_ooo::sim_ooo(unsigned mem_size,
 	data_memory = new unsigned char[data_memory_size];
 	
 	//fill here
+	issue_max = max_issue;
+
+	int_rs = new reservation_station[num_int_res_stations];
+	add_rs = new reservation_station[num_add_res_stations];
+	mult_rs = new reservation_station[num_mul_res_stations];
+	load_rs = new reservation_station[num_load_res_stations];
+
+	for (int i = 0; i < num_int_res_stations; i++)
+	{
+		int_rs[i].name = "INT" + to_string(i);
+	}
+	for (int i = 0; i < num_add_res_stations; i++)
+	{
+		add_rs[i].name = "ADD" + to_string(i);
+	}
+	for (int i = 0; i < num_mul_res_stations; i++)
+	{
+		mult_rs[i].name = "MULT" + to_string(i);
+	}
+	for (int i = 0; i < num_load_res_stations; i++)
+	{
+		load_rs[i].name = "LOAD" + to_string(i);
+	}
+
+	rob = new read_order_buffer[rob_size];
 }
 	
 sim_ooo::~sim_ooo()
@@ -62,6 +132,58 @@ sim_ooo::~sim_ooo()
 
 void sim_ooo::init_exec_unit(exe_unit_t exec_unit, unsigned latency, unsigned instances)
 {
+	string unit_name;
+	
+	switch (exec_unit)
+	{
+	case INTEGER:
+		unit_name = "INT";
+		int_ex = new ex_unit[instances];
+		break;
+	case ADDER:
+		unit_name = "ADD";
+		add_ex = new ex_unit[instances];
+		break;
+	case MULTIPLIER:
+		unit_name = "MULT";
+		mult_ex = new ex_unit[instances];
+		break;
+	case DIVIDER:
+		unit_name = "DIV";
+		div_ex = new ex_unit[instances];
+		break;
+	case MEMORY:
+		unit_name = "MEM";
+		mem_ex = new ex_unit[instances];
+		break;
+	}
+
+	for(int i = 0; i < instances; i++)
+	{
+		switch (exec_unit)
+		{
+		case INTEGER:
+			int_ex[i].name = unit_name + to_string(i);
+			int_ex[i].delay = latency;
+			break;
+		case ADDER:
+			add_ex[i].name = unit_name + to_string(i);
+			add_ex[i].delay = latency;
+			break;
+		case MULTIPLIER:
+			mult_ex[i].name = unit_name + to_string(i);
+			mult_ex[i].delay = latency;
+			break;
+		case DIVIDER:
+			div_ex[i].name = unit_name + to_string(i);
+			div_ex[i].delay = latency;
+			break;
+		case MEMORY:
+			mem_ex[i].name = unit_name + to_string(i);
+			mem_ex[i].delay = latency;
+			break;
+		}
+	}
 
 }
 
@@ -657,4 +779,24 @@ bool sim_ooo::branchIf(unsigned opcode, unsigned a)
 		condition = true;
 	}
 	return condition;
+}
+
+void sim_ooo::issue()
+{
+
+}
+
+void sim_ooo::execute()
+{
+
+}
+
+void sim_ooo::write_result()
+{
+
+}
+
+void sim_ooo::commit()
+{
+
 }
