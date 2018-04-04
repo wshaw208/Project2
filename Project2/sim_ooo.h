@@ -23,6 +23,9 @@ typedef enum {INTEGER = 1, ADDER = 2, MULTIPLIER = 3, DIVIDER = 4, MEMORY = 5} e
 
 typedef enum{ISSUE = 1, EXECUTE = 2, WRITE_RESULT = 3, COMMIT = 4} stage_t;
 
+struct reservation_station;
+struct ex_unit;
+struct read_order_buffer;
 
 class sim_ooo{
 
@@ -52,6 +55,7 @@ class sim_ooo{
 	bool stalled;
 
 	unsigned issue_max;
+	unsigned rob_entry;
 public:
 
 	/* Instantiates the simulator
@@ -165,6 +169,18 @@ public:
 	void write_result();
 
 	void commit();
+
+	int get_open_rs(reservation_station *rs);
+
+	int get_open_rob(read_order_buffer *rob);
+
+	void write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned entry, unsigned destination, bool int_or_float);
+
+	void write_to_rs(unsigned open_rs, reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned dest, string a);
+
+	unsigned get_q(unsigned i, bool int_or_float);
+
+	string make_a(unsigned instruction, bool int_or_float);
 };
 
 #endif /*SIM_OOO_H_*/

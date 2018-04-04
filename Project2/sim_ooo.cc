@@ -21,8 +21,9 @@ struct reservation_station
 	unsigned opcode;
 	int vj, vk;
 	float vjf, vkf;
-	string qj, qk, dest;
-	unsigned a;
+	unsigned qj, qk, dest;
+	string a;
+
 };
 
 struct ex_unit
@@ -33,17 +34,30 @@ struct ex_unit
 	int vj, vk;
 	float vjf, vkf;
 	int ttf, delay; //ttf time-to-finish
+	unsigned entry;
 };
 
 struct read_order_buffer
 {
 	unsigned entry;
 	bool busy, ready;
-	string instruction;
+	unsigned instruction;
 	string state;
 	string destination;
 	int value;
 	float value_f;
+};
+
+struct int_register
+{
+	int value;
+	unsigned entry;
+};
+
+struct fp_register
+{
+	float value;
+	unsigned entry;
 };
 
 reservation_station* int_rs;
@@ -58,6 +72,9 @@ ex_unit* div_ex;
 ex_unit* mem_ex;
 
 read_order_buffer* rob;
+
+int_register* int_reg;
+fp_register* fp_reg;
 
 /* convert a float into an unsigned */
 inline unsigned float2unsigned(float value){
@@ -108,21 +125,26 @@ sim_ooo::sim_ooo(unsigned mem_size,
 	for (int i = 0; i < num_int_res_stations; i++)
 	{
 		int_rs[i].name = "INT" + to_string(i);
+		int_rs[i].busy = false;
 	}
 	for (int i = 0; i < num_add_res_stations; i++)
 	{
 		add_rs[i].name = "ADD" + to_string(i);
+		add_rs[i].busy = false;
 	}
 	for (int i = 0; i < num_mul_res_stations; i++)
 	{
 		mult_rs[i].name = "MULT" + to_string(i);
+		mult_rs[i].busy = false;
 	}
 	for (int i = 0; i < num_load_res_stations; i++)
 	{
 		load_rs[i].name = "LOAD" + to_string(i);
+		load_rs[i].busy = false;
 	}
 
 	rob = new read_order_buffer[rob_size];
+	rob_entry = 0;
 }
 	
 sim_ooo::~sim_ooo()
@@ -531,8 +553,10 @@ void sim_ooo::reset()
 	//Add reset for reservation stations
 	for (int i = 0; i < NUM_GP_REGISTERS; i++)
 	{
-		r_reg[i] = UNDEFINED;
-		f_reg[i] = (float)UNDEFINED;
+		int_reg[i].value = UNDEFINED;
+		int_reg[i].entry = UNDEFINED;
+		fp_reg[i].value = (float)UNDEFINED;
+		fp_reg[i].entry = UNDEFINED;
 	}
 	clock_cycles = 0;
 	instruction_count = 0;
@@ -540,22 +564,22 @@ void sim_ooo::reset()
 
 int sim_ooo::get_int_register(unsigned reg)
 {
-	return r_reg[reg];
+	return int_reg[reg].value;
 }
 
 void sim_ooo::set_int_register(unsigned reg, int value)
 {
-	r_reg[reg] = value;
+	int_reg[reg].value = value;
 }
 
 float sim_ooo::get_fp_register(unsigned reg)
 {
-	return f_reg[reg];
+	return fp_reg[reg].value;
 }
 
 void sim_ooo::set_fp_register(unsigned reg, float value)
 {
-	f_reg[reg] = value;
+	fp_reg[reg].value = value;
 }
 
 unsigned sim_ooo::get_pending_int_register(unsigned reg)
@@ -783,6 +807,33 @@ bool sim_ooo::branchIf(unsigned opcode, unsigned a)
 
 void sim_ooo::issue()
 {
+	bool int_or_float = true;
+	int open_rob = get_open_rob(rob);
+	unsigned destination;
+	if (open_rob == -1) // if no open re-order buffer we stall the issue stage
+	{
+		return;
+	}
+	int opcode = (instruction_memory[pc] >> 26) & 31;
+	if (opcode == LW || opcode == SW || opcode == SWS || opcode == LWS)
+	{
+		int open_rs = get_open_rs(load_rs);
+		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		{
+			return;
+		}
+		if (opcode == SWS || opcode == LWS)
+		{
+			int_or_float = false;
+		}
+		destination = ((instruction_memory[pc] >> 21) & 31);
+		unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
+		string a = make_a(instruction_memory[pc], int_or_float);
+		write_to_rob_issue(instruction_memory[pc], open_rob, rob_entry, destination, int_or_float); // writes the instruction to the rob
+		write_to_rs(open_rs, load_rs, opcode, int_or_float, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, qj, UNDEFINED, rob_entry, a);
+
+
+	}
 
 }
 
@@ -799,4 +850,103 @@ void sim_ooo::write_result()
 void sim_ooo::commit()
 {
 
+}
+
+int sim_ooo::get_open_rs(reservation_station *rs)
+{
+	int station = -1;
+	int size = sizeof(rs) / sizeof(*rs);
+	for (int i = 0; i < size; i++)
+	{
+		if (!rs[i].busy)
+		{
+			station = i;
+			break;
+		}
+	}
+	return station;
+}
+
+int sim_ooo::get_open_rob(read_order_buffer* rob)
+{
+	int station = -1;
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		if (!rob[i].busy)
+		{
+			station = i;
+			break;
+		}
+	}
+	return station;
+}
+
+void sim_ooo::write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned entry, unsigned destination, bool int_or_float)
+{
+	string des;
+	if (int_or_float)
+	{
+		des = "R";
+		int_reg[destination].entry = open_rob;
+	}
+	else
+	{
+		des = "F";
+		fp_reg[destination].entry = open_rob;
+	}
+	rob[open_rob].entry = entry;
+	rob[open_rob].busy = true;
+	rob[open_rob].ready = false;
+	rob[open_rob].instruction = instruction;
+	rob[open_rob].destination = des + to_string(destination);
+	rob[open_rob].state = "ISSUE";
+
+	return;
+}
+
+void sim_ooo::write_to_rs(unsigned open_rs,reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned dest, string a)
+{
+	rs[open_rs].busy = true;
+	rs[open_rs].opcode = opcode;
+	if (int_or_float)
+	{
+		rs[open_rs].vj = vj;
+		rs[open_rs].vk = vk;
+	}
+	else
+	{
+		rs[open_rs].vjf = vjf;
+		rs[open_rs].vkf = vkf;
+	}
+	rs[open_rs].qj = qj;
+	rs[open_rs].qk = qk;
+	rs[open_rs].dest = dest;
+	rs[open_rs].a = a;
+
+}
+
+unsigned sim_ooo::get_q(unsigned i, bool int_or_float)
+{
+	if (int_or_float)
+	{
+		return int_reg[i].entry;
+	}
+	else
+	{
+		return fp_reg[i].entry;
+	}
+}
+
+string sim_ooo::make_a(unsigned instruction, bool int_or_float)
+{
+	string a;
+	if (int_or_float)
+	{
+		a = "R" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
+	}
+	else
+	{
+		a = "F" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
+	}
 }
