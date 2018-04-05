@@ -181,6 +181,10 @@ public:
 	unsigned get_q(unsigned i, bool int_or_float);
 
 	string make_a(unsigned instruction, bool int_or_float);
+
+	int get_vx(unsigned reg);
+
+	float get_vxf(unsigned reg);
 };
 
 #endif /*SIM_OOO_H_*/

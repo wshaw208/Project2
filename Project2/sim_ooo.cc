@@ -831,10 +831,129 @@ void sim_ooo::issue()
 		string a = make_a(instruction_memory[pc], int_or_float);
 		write_to_rob_issue(instruction_memory[pc], open_rob, rob_entry, destination, int_or_float); // writes the instruction to the rob
 		write_to_rs(open_rs, load_rs, opcode, int_or_float, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, qj, UNDEFINED, rob_entry, a);
-
-
 	}
 
+	else if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == OR
+		|| opcode == AND || opcode == MULT || opcode == DIV || opcode == ADDS
+		|| opcode == SUBS || opcode == MULTS || opcode == DIVS)
+	{
+		if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
+		{
+			int_or_float = false;
+		}
+		destination = ((instruction_memory[pc] >> 21) & 31);
+		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+		unsigned qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+		unsigned vj = get_vx((instruction_memory[pc] >> 16) & 31);
+		unsigned vjf = get_vxf((instruction_memory[pc] >> 16) & 31);
+		unsigned vk = get_vx((instruction_memory[pc] >> 11) & 31);
+		unsigned vkf = get_vxf((instruction_memory[pc] >> 11) & 31);
+		string a = NULL;
+		
+		if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == AND || opcode == OR)
+		{
+			int open_rs = get_open_rs(int_rs);
+			if (open_rs == -1) // if no open reservation station we stall the issue stage
+			{
+				return;
+			}
+			write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+		}
+		else if (opcode == ADDS || opcode == SUBS)
+		{
+			int open_rs = get_open_rs(add_rs);
+			if (open_rs == -1) // if no open reservation station we stall the issue stage
+			{
+				return;
+			}
+			write_to_rs(open_rs, add_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+		}
+		else if (opcode = MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
+		{
+			int open_rs = get_open_rs(mult_rs);
+			if (open_rs == -1) // if no open reservation station we stall the issue stage
+			{
+				return;
+			}
+			write_to_rs(open_rs, mult_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+		}
+
+		write_to_rob_issue(instruction_memory[pc], open_rob, rob_entry, destination, int_or_float); // writes the instruction to the rob
+	}
+	else if (opcode == ADDI || opcode == SUBI || opcode == XORI
+		|| opcode == ORI || opcode == ANDI)
+	{
+		destination = ((instruction_memory[pc] >> 21) & 31);
+		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+		unsigned qk = UNDEFINED;
+		unsigned vj = get_vx((instruction_memory[pc] >> 16) & 31);
+		unsigned vjf = (float)UNDEFINED;
+		unsigned vk = (instruction_memory[pc] & 65536);
+		unsigned vkf = (float)UNDEFINED;
+		string a = NULL;
+		int open_rs = get_open_rs(int_rs);
+		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		{
+			return;
+		}
+		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+	}
+	else if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+		|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
+	{
+		destination = UNDEFINED;
+		unsigned qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
+		unsigned qk = UNDEFINED;
+		unsigned vj = get_vx((instruction_memory[pc] >> 21) & 31);
+		unsigned vjf = (float)UNDEFINED;
+		unsigned vk = (instruction_memory[pc] & 65536) + base_Address;
+		unsigned vkf = (float)UNDEFINED;
+		string a = NULL;
+		int open_rs = get_open_rs(int_rs);
+		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		{
+			return;
+		}
+		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+	}
+	else if (opcode == JUMP)
+	{
+		destination = UNDEFINED;
+		unsigned qj = UNDEFINED;
+		unsigned qk = UNDEFINED;
+		unsigned vj = UNDEFINED;
+		unsigned vjf = (float)UNDEFINED;
+		unsigned vk = (instruction_memory[pc] & 65536) + base_Address;
+		unsigned vkf = (float)UNDEFINED;
+		string a = NULL;
+		int open_rs = get_open_rs(int_rs);
+		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		{
+			return;
+		}
+		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+	}
+	else if (opcode == EOP)
+	{
+		destination = UNDEFINED;
+		unsigned qj = UNDEFINED;
+		unsigned qk = UNDEFINED;
+		unsigned vj = UNDEFINED;
+		unsigned vjf = (float)UNDEFINED;
+		unsigned vk = UNDEFINED;
+		unsigned vkf = (float)UNDEFINED;
+		string a = NULL;
+		int open_rs = get_open_rs(int_rs);
+		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		{
+			return;
+		}
+		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, rob_entry, a);
+	}
+
+
+	pc++;
+	open_rob++;
 }
 
 void sim_ooo::execute()
@@ -948,5 +1067,29 @@ string sim_ooo::make_a(unsigned instruction, bool int_or_float)
 	else
 	{
 		a = "F" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
+	}
+}
+
+int sim_ooo::get_vx(unsigned reg)
+{
+	if (int_reg[reg].entry != UNDEFINED)
+	{
+		return int_reg[reg].value;
+	}
+	else
+	{
+		return UNDEFINED;
+	}
+}
+
+float sim_ooo::get_vxf(unsigned reg)
+{
+	if (int_reg[reg].entry != UNDEFINED)
+	{
+		return fp_reg[reg].value;
+	}
+	else
+	{
+		return (float)UNDEFINED;
 	}
 }
