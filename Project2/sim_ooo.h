@@ -206,7 +206,17 @@ public:
 
 	void write_rob(float answer, unsigned entry);
 
-	ex_unit clear_ex_unit();
+	ex_unit clear_ex_unit(std::string name);
+
+	void flush_rob();
+
+	read_order_buffer clear_rob_entry();
+
+	void flush_ex();
+
+	void flush_rs();
+
+	reservation_station clear_rs(std::string name);
 };
 
 #endif /*SIM_OOO_H_*/

@@ -536,7 +536,10 @@ void sim_ooo::run(unsigned cycles)
 	{
 		while (!eop)
 		{
-			
+			issue();
+			execute();
+			write_result();
+			commit();
 			clock_cycles++;
 		}
 	}
@@ -545,8 +548,15 @@ void sim_ooo::run(unsigned cycles)
 		unsigned i;
 		for (i = 0; i<cycles; i++)
 		{
-			
+			issue();
+			execute();
+			write_result();
+			commit();
 			clock_cycles++;
+			if (eop)
+			{
+				break;
+			}
 		}
 	}
 }
@@ -1236,7 +1246,7 @@ void sim_ooo::write_result()
 				write_rob(answer, int_ex[i].entry);
 			}
 			//clear ex unit after writing result
-			int_ex[i] = clear_ex_unit();
+			int_ex[i] = clear_ex_unit(int_ex[i].name);
 		}
 	}
 	size = sizeof(add_ex) / sizeof(*add_ex);
@@ -1247,7 +1257,7 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(add_ex[i]);
 			write_rs(answer, add_ex[i].entry);
 			write_rob(answer, add_ex[i].entry);
-			add_ex[i] = clear_ex_unit();
+			add_ex[i] = clear_ex_unit(add_ex[i].name);
 		}
 	}
 	size = sizeof(mem_ex) / sizeof(*mem_ex);
@@ -1267,7 +1277,7 @@ void sim_ooo::write_result()
 				write_rs(answer, mem_ex[i].entry);
 				write_rob(answer, mem_ex[i].entry);
 			}
-			mem_ex[i] = clear_ex_unit();
+			mem_ex[i] = clear_ex_unit(mem_ex[i].name);
 		}
 	}
 	size = sizeof(mult_ex) / sizeof(*mult_ex);
@@ -1278,7 +1288,7 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(mult_ex[i]);
 			write_rs(answer, mult_ex[i].entry);
 			write_rob(answer, mult_ex[i].entry);
-			mult_ex[i] = clear_ex_unit();
+			mult_ex[i] = clear_ex_unit(mult_ex[i].name);
 		}
 	}
 	size = sizeof(div_ex) / sizeof(*div_ex);
@@ -1289,14 +1299,82 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(div_ex[i]);
 			write_rs(answer, div_ex[i].entry);
 			write_rob(answer, div_ex[i].entry);
-			div_ex[i] = clear_ex_unit();
+			div_ex[i] = clear_ex_unit(div_ex[i].name);
 		}
 	}
 }
 
 void sim_ooo::commit()
 {
+	//find the lowest entry
+	unsigned entry = rob[0].entry;
+	unsigned pos = 0;
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		if (rob[i].entry < entry)
+		{
+			entry = rob[i].entry;
+			pos = i;
+		}
+	}
+	if (rob[pos].ready)
+	{
+		unsigned opcode = (rob[pos].instruction >> 26) & 31;
+		if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+			|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
+		{
+			if (rob[pos].value != UNDEFINED) // branch was taken
+			{
+				pc = rob[pos].value;
+				flush_rob();
+				flush_ex();
+				flush_rs();
+			}
+		}
+		else if (opcode == JUMP)
+		{
+			pc = rob[pos].value;
+		}
+		else if (opcode == SW)
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			write_memory(rob[pos].value, int_reg[reg].value);
+		}
+		else if (opcode == SWS)
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			write_memory((int)rob[pos].value_f, fp_reg[reg].value);
+		}
+		else if (opcode == LW)
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			int_reg[reg].value = rob[pos].value;
+		}
+		else if (opcode == LWS)
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			fp_reg[reg].value = rob[pos].value_f;
+		}
+		else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			fp_reg[reg].value = rob[pos].value_f;
+		}
+		else if (opcode == EOP)
+		{
+			eop = true;
+			instruction_count--;
+		}
+		else
+		{
+			int reg = convert_string_to_number(rob[pos].destination);
+			int_reg[reg].value = rob[pos].value;
+		}
 
+		rob[pos] = clear_rob_entry();
+		instruction_count++;
+	}
 }
 
 int sim_ooo::get_open_rs(reservation_station *rs)
@@ -1450,7 +1528,7 @@ bool sim_ooo::station_ready(reservation_station rs)
 
 int sim_ooo::compute_result_int(ex_unit ex)
 {
-	int answer = 0;
+	int answer = UNDEFINED;
 	unsigned opcode = ex.opcode;
 	switch (opcode)
 	{
@@ -1487,41 +1565,41 @@ int sim_ooo::compute_result_int(ex_unit ex)
 	case BEQZ:
 		if (ex.vj == 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case BNEZ:
 		if (ex.vj != 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case BLTZ:
 		if (ex.vj < 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case BGTZ:
 		if (ex.vj > 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case BLEZ:
 		if (ex.vj <= 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case BGEZ:
 		if (ex.vj >= 0)
 		{
-			answer = 1;
+			answer = ex.vk;
 		}
 		break;
 	case JUMP:
-		answer = 1;
+		answer = ex.vk;
 		break;
 	case MULT:
 		answer = ex.vj * ex.vk;
@@ -1727,6 +1805,8 @@ void sim_ooo::write_rob(int answer, unsigned entry)
 		if (rob[i].entry == entry)
 		{
 			rob[i].value = answer;
+			rob[i].state = "Write";
+			rob[i].ready = true;
 		}
 	}
 }
@@ -1739,13 +1819,16 @@ void sim_ooo::write_rob(float answer, unsigned entry)
 		if (rob[i].entry == entry)
 		{
 			rob[i].value_f = answer;
+			rob[i].state = "Write";
+			rob[i].ready = true;
 		}
 	}
 }
 
-ex_unit sim_ooo::clear_ex_unit()
+ex_unit sim_ooo::clear_ex_unit(std::string name)
 {
 	ex_unit ex;
+	ex.name = name;
 	ex.busy = false;
 	ex.entry = UNDEFINED;
 	ex.opcode = UNDEFINED;
@@ -1755,4 +1838,104 @@ ex_unit sim_ooo::clear_ex_unit()
 	ex.vjf = (float)UNDEFINED;
 	ex.vkf = (float)UNDEFINED;
 	return ex;
+}
+
+void sim_ooo::flush_rob()
+{
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		rob[i].busy = false;
+		rob[i].destination = "";
+		rob[i].entry = UNDEFINED;
+		rob[i].instruction = UNDEFINED;
+		rob[i].ready = false;
+		rob[i].state = "";
+		rob[i].value = UNDEFINED;
+		rob[i].value_f = (float)UNDEFINED;
+	}
+}
+
+read_order_buffer sim_ooo::clear_rob_entry()
+{
+	read_order_buffer empty;
+	empty.busy = false;
+	empty.destination = "";
+	empty.entry = UNDEFINED;
+	empty.instruction = UNDEFINED;
+	empty.ready = false;
+	empty.state = "";
+	empty.value = UNDEFINED;
+	empty.value_f = (float)UNDEFINED;
+	return empty;
+}
+
+void sim_ooo::flush_ex()
+{
+	int size = sizeof(int_ex) / sizeof(*int_ex);
+	for (int i = 0; i < size; i++)
+	{
+		int_ex[i] = clear_ex_unit(int_ex[i].name);
+	}
+	size = sizeof(add_ex) / sizeof(*add_ex);
+	for (int i = 0; i < size; i++)
+	{
+		add_ex[i] = clear_ex_unit(add_ex[i].name);
+	}
+	size = sizeof(mult_ex) / sizeof(*mult_ex);
+	for (int i = 0; i < size; i++)
+	{
+		mult_ex[i] = clear_ex_unit(mult_ex[i].name);
+	}
+	size = sizeof(div_ex) / sizeof(*div_ex);
+	for (int i = 0; i < size; i++)
+	{
+		div_ex[i] = clear_ex_unit(div_ex[i].name);
+	}
+	size = sizeof(mem_ex) / sizeof(*mem_ex);
+	for (int i = 0; i < size; i++)
+	{
+		mem_ex[i] = clear_ex_unit(mem_ex[i].name);
+	}
+}
+
+void sim_ooo::flush_rs()
+{
+	int size = sizeof(int_rs) / sizeof(*int_rs);
+	for (int i = 0; i < size; i++)
+	{
+		int_rs[i] = clear_rs(int_rs[i].name);
+	}
+	size = sizeof(add_rs) / sizeof(*add_rs);
+	for (int i = 0; i < size; i++)
+	{
+		add_rs[i] = clear_rs(add_rs[i].name);
+	}
+	size = sizeof(mult_rs) / sizeof(*mult_rs);
+	for (int i = 0; i < size; i++)
+	{
+		mult_rs[i] = clear_rs(mult_rs[i].name);
+	}
+	size = sizeof(load_rs) / sizeof(*load_rs);
+	for (int i = 0; i < size; i++)
+	{
+		load_rs[i] = clear_rs(load_rs[i].name);
+	}
+}
+
+reservation_station sim_ooo::clear_rs(std::string name)
+{
+	reservation_station rs;
+	rs.name = name;
+	rs.a = "";
+	rs.busy = false;
+	rs.dest = UNDEFINED;
+	rs.opcode = UNDEFINED;
+	rs.qj = UNDEFINED;
+	rs.qk = UNDEFINED;
+	rs.vj = UNDEFINED;
+	rs.vk = UNDEFINED;
+	rs.vjf = (float)UNDEFINED;
+	rs.vkf = (float)UNDEFINED;
+	return rs;
 }
