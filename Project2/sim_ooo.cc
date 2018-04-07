@@ -113,7 +113,11 @@ sim_ooo::sim_ooo(unsigned mem_size,
 	//memory
 	data_memory_size = mem_size;
 	data_memory = new unsigned char[data_memory_size];
-	
+	for (int i = 0; i < data_memory_size; i++)
+	{
+		data_memory[i] = 0xFF;
+	}
+
 	//fill here
 	issue_max = max_issue;
 
@@ -828,6 +832,9 @@ void sim_ooo::issue()
 		}
 		destination = ((instruction_memory[pc] >> 21) & 31);
 		unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
+		unsigned vj = get_vx(instruction_memory[pc] & 31);
+		unsigned vjk = get_vxf(instruction_memory[pc] & 31);
+		unsigned vk = (instruction_memory[pc] >> 5) & 65535;
 		string a = make_a(instruction_memory[pc], int_or_float);
 		write_to_rob_issue(instruction_memory[pc], open_rob, rob_entry, destination, int_or_float); // writes the instruction to the rob
 		write_to_rs(open_rs, load_rs, opcode, int_or_float, UNDEFINED, UNDEFINED, UNDEFINED, UNDEFINED, qj, UNDEFINED, rob_entry, a);
@@ -888,7 +895,7 @@ void sim_ooo::issue()
 		unsigned qk = UNDEFINED;
 		unsigned vj = get_vx((instruction_memory[pc] >> 16) & 31);
 		unsigned vjf = (float)UNDEFINED;
-		unsigned vk = (instruction_memory[pc] & 65536);
+		unsigned vk = (instruction_memory[pc] & 65535);
 		unsigned vkf = (float)UNDEFINED;
 		string a = NULL;
 		int open_rs = get_open_rs(int_rs);
@@ -906,7 +913,7 @@ void sim_ooo::issue()
 		unsigned qk = UNDEFINED;
 		unsigned vj = get_vx((instruction_memory[pc] >> 21) & 31);
 		unsigned vjf = (float)UNDEFINED;
-		unsigned vk = (instruction_memory[pc] & 65536) + base_Address;
+		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
 		unsigned vkf = (float)UNDEFINED;
 		string a = NULL;
 		int open_rs = get_open_rs(int_rs);
@@ -923,7 +930,7 @@ void sim_ooo::issue()
 		unsigned qk = UNDEFINED;
 		unsigned vj = UNDEFINED;
 		unsigned vjf = (float)UNDEFINED;
-		unsigned vk = (instruction_memory[pc] & 65536) + base_Address;
+		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
 		unsigned vkf = (float)UNDEFINED;
 		string a = NULL;
 		int open_rs = get_open_rs(int_rs);
@@ -1069,6 +1076,7 @@ void sim_ooo::execute()
 					mem_ex[i].ttf = mem_ex[i].delay;
 					mem_ex[i].entry = load_rs[j].dest;
 					mem_ex[i].opcode = load_rs[j].opcode;
+					
 					mem_ex[i].vj = load_rs[j].vj;
 					mem_ex[i].vk = load_rs[j].vk;
 					mem_ex[i].vjf = load_rs[j].vjf;
@@ -1167,7 +1175,7 @@ void sim_ooo::execute()
 	size = sizeof(int_ex) / sizeof(*int_ex);
 	for (i = 0; i < size; i++)
 	{
-		if (!int_ex[i].ttf == UNDEFINED)
+		if (int_ex[i].ttf != UNDEFINED)
 		{
 			int_ex[i].ttf--;
 		}
@@ -1175,7 +1183,7 @@ void sim_ooo::execute()
 	size = sizeof(add_ex) / sizeof(*add_ex);
 	for (i = 0; i < size; i++)
 	{
-		if (!add_ex[i].ttf == UNDEFINED)
+		if (add_ex[i].ttf != UNDEFINED)
 		{
 			add_ex[i].ttf--;
 		}
@@ -1183,7 +1191,7 @@ void sim_ooo::execute()
 	size = sizeof(mem_ex) / sizeof(*mem_ex);
 	for (i = 0; i < size; i++)
 	{
-		if (!mem_ex[i].ttf == UNDEFINED)
+		if (mem_ex[i].ttf != UNDEFINED)
 		{
 			mem_ex[i].ttf--;
 		}
@@ -1191,7 +1199,7 @@ void sim_ooo::execute()
 	size = sizeof(mult_ex) / sizeof(*mult_ex);
 	for (i = 0; i < size; i++)
 	{
-		if (!mult_ex[i].ttf == UNDEFINED)
+		if (mult_ex[i].ttf != UNDEFINED)
 		{
 			mult_ex[i].ttf--;
 		}
@@ -1199,7 +1207,7 @@ void sim_ooo::execute()
 	size = sizeof(div_ex) / sizeof(*div_ex);
 	for (i = 0; i < size; i++)
 	{
-		if (!div_ex[i].ttf == UNDEFINED)
+		if (div_ex[i].ttf != UNDEFINED)
 		{
 			div_ex[i].ttf--;
 		}
@@ -1209,7 +1217,81 @@ void sim_ooo::execute()
 
 void sim_ooo::write_result()
 {
-
+	// check to see if any ex units are done
+	int i;
+	int size = sizeof(int_ex) / sizeof(*int_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (int_ex[i].ttf == 0)
+		{
+			int answer = compute_result_int(int_ex[i]);
+			if (int_ex[i].opcode == BEQZ || int_ex[i].opcode == BNEZ || int_ex[i].opcode == BLTZ || int_ex[i].opcode == BGTZ
+				|| int_ex[i].opcode == BLEZ || int_ex[i].opcode == BGEZ || int_ex[i].opcode == JUMP)
+			{
+				write_rob(answer, int_ex[i].entry);
+			}
+			else
+			{
+				write_rs(answer, int_ex[i].entry);
+				write_rob(answer, int_ex[i].entry);
+			}
+			//clear ex unit after writing result
+			int_ex[i] = clear_ex_unit();
+		}
+	}
+	size = sizeof(add_ex) / sizeof(*add_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (add_ex[i].ttf == 0)
+		{
+			float answer = compute_result_fp(add_ex[i]);
+			write_rs(answer, add_ex[i].entry);
+			write_rob(answer, add_ex[i].entry);
+			add_ex[i] = clear_ex_unit();
+		}
+	}
+	size = sizeof(mem_ex) / sizeof(*mem_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (mem_ex[i].ttf == 0)
+		{
+			if (mem_ex[i].opcode == LW || mem_ex[i].opcode == SW)
+			{
+				int answer = compute_address_int(mem_ex[i]);
+				write_rs(answer, mem_ex[i].entry);
+				write_rob(answer, mem_ex[i].entry);
+			}
+			else
+			{
+				float answer = compute_address_fp(mem_ex[i]);
+				write_rs(answer, mem_ex[i].entry);
+				write_rob(answer, mem_ex[i].entry);
+			}
+			mem_ex[i] = clear_ex_unit();
+		}
+	}
+	size = sizeof(mult_ex) / sizeof(*mult_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (mult_ex[i].ttf == 0)
+		{
+			float answer = compute_result_fp(mult_ex[i]);
+			write_rs(answer, mult_ex[i].entry);
+			write_rob(answer, mult_ex[i].entry);
+			mult_ex[i] = clear_ex_unit();
+		}
+	}
+	size = sizeof(div_ex) / sizeof(*div_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (div_ex[i].ttf == 0)
+		{
+			float answer = compute_result_fp(div_ex[i]);
+			write_rs(answer, div_ex[i].entry);
+			write_rob(answer, div_ex[i].entry);
+			div_ex[i] = clear_ex_unit();
+		}
+	}
 }
 
 void sim_ooo::commit()
@@ -1364,4 +1446,313 @@ bool sim_ooo::station_ready(reservation_station rs)
 		ready == true;
 	}
 	return ready;
+}
+
+int sim_ooo::compute_result_int(ex_unit ex)
+{
+	int answer = 0;
+	unsigned opcode = ex.opcode;
+	switch (opcode)
+	{
+	case ADD:
+		answer = ex.vj + ex.vk;
+		break;
+	case SUB:
+		answer = ex.vj - ex.vk;
+		break;
+	case XOR:
+		answer = ex.vj ^ ex.vk;
+		break;
+	case OR:
+		answer = ex.vj | ex.vk;
+		break;
+	case AND:
+		answer = ex.vj & ex.vk;
+		break;
+	case ADDI:
+		answer = ex.vj + ex.vk;
+		break;
+	case SUBI:
+		answer = ex.vj - ex.vk;
+		break;
+	case XORI:
+		answer = ex.vj ^ ex.vk;
+		break;
+	case ORI:
+		answer = ex.vj | ex.vk;
+		break;
+	case ANDI:
+		answer = ex.vj & ex.vk;
+		break;
+	case BEQZ:
+		if (ex.vj == 0)
+		{
+			answer = 1;
+		}
+		break;
+	case BNEZ:
+		if (ex.vj != 0)
+		{
+			answer = 1;
+		}
+		break;
+	case BLTZ:
+		if (ex.vj < 0)
+		{
+			answer = 1;
+		}
+		break;
+	case BGTZ:
+		if (ex.vj > 0)
+		{
+			answer = 1;
+		}
+		break;
+	case BLEZ:
+		if (ex.vj <= 0)
+		{
+			answer = 1;
+		}
+		break;
+	case BGEZ:
+		if (ex.vj >= 0)
+		{
+			answer = 1;
+		}
+		break;
+	case JUMP:
+		answer = 1;
+		break;
+	case MULT:
+		answer = ex.vj * ex.vk;
+		break;
+	case DIV:
+		answer = ex.vj / ex.vk;
+		break;
+	}
+	return answer;
+}
+
+float sim_ooo::compute_result_fp(ex_unit ex)
+{
+	float answer = 0;
+	unsigned opcode = ex.opcode;
+	switch (opcode)
+	{
+	case ADDS:
+		answer = ex.vjf + ex.vkf;
+		break;
+	case SUBS:
+		answer = ex.vjf - ex.vkf;
+		break;
+	case MULTS:
+		answer = ex.vjf * ex.vkf;
+		break;
+	case DIVS:
+		answer = ex.vjf / ex.vkf;
+		break;
+	}
+	return answer;
+}
+
+int sim_ooo::compute_address_int(ex_unit ex)
+{
+	int answer = 0;
+	if (ex.opcode == LW)
+	{
+		answer += data_memory[ex.vj + ex.vk + 3];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 2];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 1];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 0];
+	}
+	else
+	{
+		answer = ex.vj + ex.vk;
+	}
+	return answer;
+}
+
+float sim_ooo::compute_address_fp(ex_unit ex)
+{
+	float ans;
+	int answer = 0;
+	if (ex.opcode == LWS)
+	{
+		answer += data_memory[ex.vj + ex.vk + 3];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 2];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 1];
+		answer = answer << 8;
+		answer += data_memory[ex.vj + ex.vk + 0];
+		ans = (float)answer;
+	}
+	else
+	{
+		ans = (float)(ex.vj + ex.vk);
+	}
+	return ans;
+}
+
+void sim_ooo::write_rs(int answer, unsigned dest)
+{
+	int size, i;
+	size = sizeof(int_rs) / sizeof(*int_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (int_rs[i].qj == dest)
+		{
+			int_rs[i].qj == UNDEFINED;
+			int_rs[i].vj == answer;
+		}
+		if (int_rs[i].qk == dest)
+		{
+			int_rs[i].qk == UNDEFINED;
+			int_rs[i].vk == answer;
+		}
+	}
+	size = sizeof(add_rs) / sizeof(*add_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (add_rs[i].qj == dest)
+		{
+			add_rs[i].qj == UNDEFINED;
+			add_rs[i].vj == answer;
+		}
+		if (add_rs[i].qk == dest)
+		{
+			add_rs[i].qk == UNDEFINED;
+			add_rs[i].vk == answer;
+		}
+	}
+	size = sizeof(mult_rs) / sizeof(*mult_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (mult_rs[i].qj == dest)
+		{
+			mult_rs[i].qj == UNDEFINED;
+			mult_rs[i].vj == answer;
+		}
+		if (mult_rs[i].qk == dest)
+		{
+			mult_rs[i].qk == UNDEFINED;
+			mult_rs[i].vk == answer;
+		}
+	}
+	size = sizeof(load_rs) / sizeof(*load_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (load_rs[i].qj == dest)
+		{
+			load_rs[i].qj == UNDEFINED;
+			load_rs[i].vj == answer;
+		}
+		if (load_rs[i].qk == dest)
+		{
+			load_rs[i].qk == UNDEFINED;
+			load_rs[i].vk == answer;
+		}
+	}
+}
+
+void sim_ooo::write_rs(float answer, unsigned dest)
+{
+	int size, i;
+	size = sizeof(int_rs) / sizeof(*int_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (int_rs[i].qj == dest)
+		{
+			int_rs[i].qj == UNDEFINED;
+			int_rs[i].vjf == answer;
+		}
+		if (int_rs[i].qk == dest)
+		{
+			int_rs[i].qk == UNDEFINED;
+			int_rs[i].vkf == answer;
+		}
+	}
+	size = sizeof(add_rs) / sizeof(*add_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (add_rs[i].qj == dest)
+		{
+			add_rs[i].qj == UNDEFINED;
+			add_rs[i].vjf == answer;
+		}
+		if (add_rs[i].qk == dest)
+		{
+			add_rs[i].qk == UNDEFINED;
+			add_rs[i].vkf == answer;
+		}
+	}
+	size = sizeof(mult_rs) / sizeof(*mult_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (mult_rs[i].qj == dest)
+		{
+			mult_rs[i].qj == UNDEFINED;
+			mult_rs[i].vjf == answer;
+		}
+		if (mult_rs[i].qk == dest)
+		{
+			mult_rs[i].qk == UNDEFINED;
+			mult_rs[i].vkf == answer;
+		}
+	}
+	size = sizeof(load_rs) / sizeof(*load_rs);
+	for (i = 0; i < size; i++)
+	{
+		if (load_rs[i].qj == dest)
+		{
+			load_rs[i].qj == UNDEFINED;
+			load_rs[i].vjf == answer;
+		}
+		if (load_rs[i].qk == dest)
+		{
+			load_rs[i].qk == UNDEFINED;
+			load_rs[i].vkf == answer;
+		}
+	}
+}
+
+void sim_ooo::write_rob(int answer, unsigned entry)
+{
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		if (rob[i].entry == entry)
+		{
+			rob[i].value = answer;
+		}
+	}
+}
+
+void sim_ooo::write_rob(float answer, unsigned entry)
+{
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		if (rob[i].entry == entry)
+		{
+			rob[i].value_f = answer;
+		}
+	}
+}
+
+ex_unit sim_ooo::clear_ex_unit()
+{
+	ex_unit ex;
+	ex.busy = false;
+	ex.entry = UNDEFINED;
+	ex.opcode = UNDEFINED;
+	ex.ttf = UNDEFINED;
+	ex.vj = UNDEFINED;
+	ex.vk = UNDEFINED;
+	ex.vjf = (float)UNDEFINED;
+	ex.vkf = (float)UNDEFINED;
+	return ex;
 }

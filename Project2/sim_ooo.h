@@ -189,6 +189,24 @@ public:
 	int get_rob(read_order_buffer *rob, unsigned dest);
 
 	bool station_ready(reservation_station rs);
+
+	int compute_result_int(ex_unit ex);
+
+	float compute_result_fp(ex_unit ex);
+	
+	int compute_address_int(ex_unit ex);
+
+	float compute_address_fp(ex_unit ex);
+
+	void write_rs(int answer, unsigned dest);
+
+	void write_rs(float answer, unsigned dest);
+
+	void write_rob(int answer, unsigned entry);
+
+	void write_rob(float answer, unsigned entry);
+
+	ex_unit clear_ex_unit();
 };
 
 #endif /*SIM_OOO_H_*/
