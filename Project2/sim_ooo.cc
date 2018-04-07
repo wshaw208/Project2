@@ -958,6 +958,252 @@ void sim_ooo::issue()
 
 void sim_ooo::execute()
 {
+	// check to see if any open exe units
+	int i;
+	bool ex_open;
+	// int unit
+	ex_open = false;
+	int size = sizeof(int_ex) / sizeof(*int_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!int_ex[i].busy)
+		{
+			ex_open = true;
+			break; // we have an open ex_unit so end loop
+		} 
+	}
+
+	// check reservation station to see if the instructions are ready
+	if (ex_open)
+	{
+		size = sizeof(int_rs) / sizeof(*int_rs);
+		for (int j = 0; j < size; j++)
+		{
+			int rob_entry = get_rob(rob, int_rs[j].dest);// gets the rob that the instruction is held in
+			if (rob[rob_entry].state == "ISSUE")
+			{
+
+				if (station_ready(int_rs[j]))//checks if we have all values necessary to compute
+				{
+					//if everything checks out then we move the instruction in the exe unit
+					rob[rob_entry].state = "EXE";
+					int_ex[i].busy = true;
+					int_ex[i].ttf = int_ex[i].delay;
+					int_ex[i].entry = int_rs[j].dest;
+					int_ex[i].opcode = int_rs[j].opcode;
+					int_ex[i].vj = int_rs[j].vj;
+					int_ex[i].vk = int_rs[j].vk;
+					int_ex[i].vjf = int_rs[j].vjf;
+					int_ex[i].vkf = int_rs[j].vkf;
+					break;
+				}
+			}
+		}
+	}
+	//add unit
+	ex_open = false;
+	size = sizeof(add_ex) / sizeof(*add_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!add_ex[i].busy)
+		{
+			ex_open = false;
+			break; // we have an open ex_unit so end loop
+		}
+	}
+
+	// check reservation station to see if the instructions are ready
+	if (ex_open)
+	{
+		size = sizeof(add_rs) / sizeof(*add_rs);
+		for (int j = 0; j < size; j++)
+		{
+			int rob_entry = get_rob(rob, add_rs[j].dest);// gets the rob that the instruction is held in
+			if (rob[rob_entry].state == "ISSUE")
+			{
+
+				if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+				{
+					//if everything checks out then we move the instruction in the exe unit
+					rob[rob_entry].state = "EXE";
+					add_ex[i].busy = true;
+					add_ex[i].ttf = add_ex[i].delay;
+					add_ex[i].entry = add_rs[j].dest;
+					add_ex[i].opcode = add_rs[j].opcode;
+					add_ex[i].vj = add_rs[j].vj;
+					add_ex[i].vk = add_rs[j].vk;
+					add_ex[i].vjf = add_rs[j].vjf;
+					add_ex[i].vkf = add_rs[j].vkf;
+					break;
+				}
+			}
+		}
+	}
+	//mem unit
+	ex_open = false;
+	size = sizeof(mem_ex) / sizeof(*mem_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!mem_ex[i].busy)
+		{
+			ex_open = false;
+			break; // we have an open ex_unit so end loop
+		}
+	}
+
+	// check reservation station to see if the instructions are ready
+	if (ex_open)
+	{
+		size = sizeof(load_rs) / sizeof(*load_rs);
+		for (int j = 0; j < size; j++)
+		{
+			int rob_entry = get_rob(rob, load_rs[j].dest);// gets the rob that the instruction is held in
+			if (rob[rob_entry].state == "ISSUE")
+			{
+
+				if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+				{
+					//if everything checks out then we move the instruction in the exe unit
+					rob[rob_entry].state = "EXE";
+					mem_ex[i].busy = true;
+					mem_ex[i].ttf = mem_ex[i].delay;
+					mem_ex[i].entry = load_rs[j].dest;
+					mem_ex[i].opcode = load_rs[j].opcode;
+					mem_ex[i].vj = load_rs[j].vj;
+					mem_ex[i].vk = load_rs[j].vk;
+					mem_ex[i].vjf = load_rs[j].vjf;
+					mem_ex[i].vkf = load_rs[j].vkf;
+					break;
+				}
+			}
+		}
+	}
+	//mult unit
+	ex_open = false;
+	size = sizeof(mult_ex) / sizeof(*mult_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!mult_ex[i].busy)
+		{
+			ex_open = false;
+			break; // we have an open ex_unit so end loop
+		}
+	}
+
+	// check reservation station to see if the instructions are ready
+	if (ex_open)
+	{
+		size = sizeof(mult_rs) / sizeof(*mult_rs);
+		for (int j = 0; j < size; j++)
+		{
+			int rob_entry = get_rob(rob, mult_rs[j].dest);// gets the rob that the instruction is held in
+			if (rob[rob_entry].state == "ISSUE")
+			{
+
+				if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
+				{
+					if (mult_rs[j].opcode == MULT || mult_rs[j].opcode == MULTS)
+					{
+						//if everything checks out then we move the instruction in the exe unit
+						rob[rob_entry].state = "EXE";
+						mult_ex[i].busy = true;
+						mult_ex[i].ttf = mult_ex[i].delay;
+						mult_ex[i].entry = mult_rs[j].dest;
+						mult_ex[i].opcode = mult_rs[j].opcode;
+						mult_ex[i].vj = mult_rs[j].vj;
+						mult_ex[i].vk = mult_rs[j].vk;
+						mult_ex[i].vjf = mult_rs[j].vjf;
+						mult_ex[i].vkf = mult_rs[j].vkf;
+						break;
+					}
+				}
+			}
+		}
+	}
+	//div unit
+	ex_open = false;
+	size = sizeof(div_ex) / sizeof(*div_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!div_ex[i].busy)
+		{
+			ex_open = false;
+			break; // we have an open ex_unit so end loop
+		}
+	}
+
+	// check reservation station to see if the instructions are ready
+	if (ex_open)
+	{
+		size = sizeof(mult_rs) / sizeof(*mult_rs);
+		for (int j = 0; j < size; j++)
+		{
+			int rob_entry = get_rob(rob, mult_rs[j].dest);// gets the rob that the instruction is held in
+			if (rob[rob_entry].state == "ISSUE")
+			{
+
+				if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
+				{
+					if (mult_rs[j].opcode == DIV || mult_rs[j].opcode == DIVS)
+					{
+						//if everything checks out then we move the instruction in the exe unit
+						rob[rob_entry].state = "EXE";
+						div_ex[i].busy = true;
+						div_ex[i].ttf = div_ex[i].delay;
+						div_ex[i].entry = mult_rs[j].dest;
+						div_ex[i].opcode = mult_rs[j].opcode;
+						div_ex[i].vj = mult_rs[j].vj;
+						div_ex[i].vk = mult_rs[j].vk;
+						div_ex[i].vjf = mult_rs[j].vjf;
+						div_ex[i].vkf = mult_rs[j].vkf;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// decrement ttf of ex units
+	size = sizeof(int_ex) / sizeof(*int_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!int_ex[i].ttf == UNDEFINED)
+		{
+			int_ex[i].ttf--;
+		}
+	}
+	size = sizeof(add_ex) / sizeof(*add_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!add_ex[i].ttf == UNDEFINED)
+		{
+			add_ex[i].ttf--;
+		}
+	}
+	size = sizeof(mem_ex) / sizeof(*mem_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!mem_ex[i].ttf == UNDEFINED)
+		{
+			mem_ex[i].ttf--;
+		}
+	}
+	size = sizeof(mult_ex) / sizeof(*mult_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!mult_ex[i].ttf == UNDEFINED)
+		{
+			mult_ex[i].ttf--;
+		}
+	}
+	size = sizeof(div_ex) / sizeof(*div_ex);
+	for (i = 0; i < size; i++)
+	{
+		if (!div_ex[i].ttf == UNDEFINED)
+		{
+			div_ex[i].ttf--;
+		}
+	}
 
 }
 
@@ -1068,6 +1314,7 @@ string sim_ooo::make_a(unsigned instruction, bool int_or_float)
 	{
 		a = "F" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
 	}
+	return a;
 }
 
 int sim_ooo::get_vx(unsigned reg)
@@ -1092,4 +1339,29 @@ float sim_ooo::get_vxf(unsigned reg)
 	{
 		return (float)UNDEFINED;
 	}
+}
+
+int sim_ooo::get_rob(read_order_buffer *rob, unsigned dest)
+{
+	int position;
+	int size = sizeof(rob) / sizeof(*rob);
+	for (int i = 0; i < size; i++)
+	{
+		if (rob[i].entry == dest)
+		{
+			position = i;
+			break;
+		}
+	}
+	return position;
+}
+
+bool sim_ooo::station_ready(reservation_station rs)
+{
+	bool ready = false;
+	if (rs.qj == UNDEFINED && rs.qk == UNDEFINED)
+	{
+		ready == true;
+	}
+	return ready;
 }

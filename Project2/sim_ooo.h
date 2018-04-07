@@ -185,6 +185,10 @@ public:
 	int get_vx(unsigned reg);
 
 	float get_vxf(unsigned reg);
+
+	int get_rob(read_order_buffer *rob, unsigned dest);
+
+	bool station_ready(reservation_station rs);
 };
 
 #endif /*SIM_OOO_H_*/
