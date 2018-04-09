@@ -54,7 +54,7 @@ class sim_ooo{
 	bool eop;
 	bool stalled;
 
-	unsigned issue_max;
+	unsigned issue_max, open_rob_entry;
 	unsigned size_of_rob, size_of_int_rs, size_of_add_rs, size_of_mult_rs, size_of_load_rs,
 		size_of_int_ex, size_of_add_ex, size_of_mult_ex, size_of_div_ex, size_of_mem_ex;
 public:
@@ -177,11 +177,9 @@ public:
 
 	void write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned pc, unsigned destination, bool int_or_float);
 
-	void write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a);
+	void write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a, unsigned open_rob);
 
 	unsigned get_q(unsigned i, bool int_or_float);
-
-	string make_a(unsigned instruction, bool int_or_float);
 
 	bool station_ready(reservation_station rs);
 
@@ -212,6 +210,8 @@ public:
 	void flush_rs();
 
 	reservation_station clear_rs(std::string name);
+
+	void find_and_clear_rs(unsigned pc);
 };
 
 #endif /*SIM_OOO_H_*/

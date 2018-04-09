@@ -35,6 +35,7 @@ struct ex_unit
 	float vjf, vkf;
 	int ttf, delay; //ttf time-to-finish
 	unsigned entry;
+	unsigned pc;
 };
 
 struct read_order_buffer
@@ -603,6 +604,18 @@ void sim_ooo::reset()
 
 int sim_ooo::get_int_register(unsigned reg)
 {
+	unsigned rob_entry = get_pending_int_register(reg);
+	if (rob_entry != UNDEFINED)
+	{
+		if (rob[rob_entry].ready)
+		{
+			return rob[rob_entry].value;
+		}
+		else
+		{
+			return UNDEFINED;
+		}
+	}
 	return int_reg[reg].value;
 }
 
@@ -613,6 +626,19 @@ void sim_ooo::set_int_register(unsigned reg, int value)
 
 float sim_ooo::get_fp_register(unsigned reg)
 {
+	unsigned rob_entry = get_pending_fp_register(reg);
+	if (rob_entry != UNDEFINED)
+	{
+		if (rob[rob_entry].ready)
+		{
+			return rob[rob_entry].value_f;
+		}
+		else
+		{
+			return unsigned2float(UNDEFINED);
+		}
+	}
+	
 	return fp_reg[reg].value;
 }
 
@@ -762,7 +788,7 @@ void sim_ooo::print_rob(){
 		cout << setfill(' ') << setw(10) << state << setw(6) << dest << setw(12);
 		if (good_value)
 		{
-			cout << hex << "0x" << setw(8) << setfill('0') << rob[i].value;
+			cout << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
 		}
 		else
 		{
@@ -800,7 +826,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 2:
-				if (int_rs[i].pc != 3452816845)
+				if (int_rs[i].pc < 10000000)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].pc << setfill(' ');
 				}
@@ -810,7 +836,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 3:
-				if (int_rs[i].vj != -842150451)
+				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vj << setfill(' ');
 				}
@@ -820,7 +846,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 4:
-				if (int_rs[i].vk != -842150451)
+				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vk << setfill(' ');
 				}
@@ -860,7 +886,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 8:
-				if (int_rs[i].a != 3452816845)
+				if (int_rs[i].dest < size_of_rob)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].a << setfill(' ') << endl;
 				}
@@ -893,7 +919,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 2:
-				if (load_rs[i].pc != 3452816845)
+				if (load_rs[i].pc < 10000000)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << load_rs[i].pc << setfill(' ');
 				}
@@ -903,7 +929,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 3:
-				if (load_rs[i].vj != -842150451)
+				if (load_rs[i].vj != UNDEFINED)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << load_rs[i].vj << setfill(' ');
 				}
@@ -946,7 +972,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 8:
-				if (load_rs[i].a != 3452816845)
+				if (load_rs[i].dest < size_of_rob)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << load_rs[i].a << setfill(' ') << endl;
 				}
@@ -979,7 +1005,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 2:
-				if (add_rs[i].pc != 3452816845)
+				if (add_rs[i].pc < 10000000)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << add_rs[i].pc << setfill(' ');
 				}
@@ -991,7 +1017,7 @@ void sim_ooo::print_reservation_stations(){
 			case 3:
 				if (add_rs[i].opcode == ADDS || add_rs[i].opcode == SUBS)
 				{
-					if (add_rs[i].vjf != -842150451)
+					if (add_rs[i].vjf < 100000.00 && add_rs[i].vjf > -100000.00)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(add_rs[i].vjf) << setfill(' ');
 					}
@@ -1002,7 +1028,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (add_rs[i].vj != -842150451)
+					if (add_rs[i].vj < 100000 && add_rs[i].vj > -100000)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << add_rs[i].vj << setfill(' ');
 					}
@@ -1015,7 +1041,7 @@ void sim_ooo::print_reservation_stations(){
 			case 4:
 				if (add_rs[i].opcode == ADDS || add_rs[i].opcode == SUBS)
 				{
-					if (add_rs[i].vkf != -842150451)
+					if (add_rs[i].vjf < 100000.00 && add_rs[i].vjf > -100000.00)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(add_rs[i].vkf) << setfill(' ');
 					}
@@ -1026,7 +1052,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (add_rs[i].vk != -842150451)
+					if (add_rs[i].vj < 100000 && add_rs[i].vj > -100000)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << add_rs[i].vk << setfill(' ');
 					}
@@ -1093,7 +1119,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 2:
-				if (mult_rs[i].pc != 3452816845)
+				if (mult_rs[i].pc < 10000000)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << mult_rs[i].pc << setfill(' ');
 				}
@@ -1103,9 +1129,9 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 3:
-				if (mult_rs[i].opcode == ADDS || mult_rs[i].opcode == SUBS)
+				if (mult_rs[i].opcode == MULTS || mult_rs[i].opcode == DIVS)
 				{
-					if (add_rs[i].vjf != -842150451)
+					if (mult_rs[i].vj < 100000.00 && mult_rs[i].vj > -100000.00)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(mult_rs[i].vjf) << setfill(' ');
 					}
@@ -1116,7 +1142,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (mult_rs[i].vj != -842150451)
+					if (mult_rs[i].vj < 100000 && mult_rs[i].vj > -100000)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << mult_rs[i].vj << setfill(' ');
 					}
@@ -1127,9 +1153,9 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 4:
-				if (mult_rs[i].opcode == ADDS || mult_rs[i].opcode == SUBS)
+				if (mult_rs[i].opcode == MULTS || mult_rs[i].opcode == DIVS)
 				{
-					if (mult_rs[i].vkf != -842150451)
+					if (mult_rs[i].vj < 100000.00 && mult_rs[i].vj > -100000.00)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(mult_rs[i].vkf) << setfill(' ');
 					}
@@ -1140,7 +1166,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (mult_rs[i].vk != -842150451)
+					if (mult_rs[i].vj < 100000 && mult_rs[i].vj > -100000)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << mult_rs[i].vk << setfill(' ');
 					}
@@ -1424,15 +1450,19 @@ void sim_ooo::issue()
 			int_or_float = false;
 		}
 		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
-		unsigned qk = UNDEFINED;
 		unsigned vj = get_int_register(instruction_memory[pc] & 31);
 		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = UNDEFINED;
 		float vkf = unsigned2float(UNDEFINED);
+		unsigned qj = UNDEFINED;
+		if (vj == UNDEFINED)
+		{
+			qj = get_q(instruction_memory[pc] & 31, int_or_float);
+		}
+		unsigned qk = UNDEFINED;
 		unsigned a = (instruction_memory[pc] >> 5) & 65535;
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 	}
 
 	else if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == OR
@@ -1444,40 +1474,78 @@ void sim_ooo::issue()
 			int_or_float = false;
 		}
 		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-		unsigned qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
 		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
 		float vjf = get_fp_register((instruction_memory[pc] >> 16) & 31);
 		unsigned vk = get_int_register((instruction_memory[pc] >> 11) & 31);
 		float vkf = get_fp_register((instruction_memory[pc] >> 11) & 31);
+		unsigned qj = UNDEFINED;
+		unsigned qk = UNDEFINED;
 		unsigned a = UNDEFINED;
 		
 		if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == AND || opcode == OR)
 		{
+			if (vj == UNDEFINED)
+			{
+				qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+			}
+			if (vk == UNDEFINED)
+			{
+				qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+			}
 			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
-			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
 		else if (opcode == ADDS || opcode == SUBS)
 		{
+			if (vjf == unsigned2float(UNDEFINED))
+			{
+				qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+			}
+			if (vkf == unsigned2float(UNDEFINED))
+			{
+				qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+			}
 			int open_rs = get_open_rs(add_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
-			write_to_rs(open_rs, 2, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 2, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
-		else if (opcode = MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
+		else if (opcode == MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
 		{
+			if (opcode == MULT || opcode == DIV)
+			{
+				if (vj == UNDEFINED)
+				{
+					qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+				}
+				if (vk == UNDEFINED)
+				{
+					qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+				}
+			}
+			else
+			{
+				if (vjf == unsigned2float(UNDEFINED))
+				{
+					qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+				}
+				if (vkf == unsigned2float(UNDEFINED))
+				{
+					qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+				}
+			}
 			int open_rs = get_open_rs(mult_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
-			write_to_rs(open_rs, 3, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 3, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
 
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
@@ -1486,12 +1554,16 @@ void sim_ooo::issue()
 		|| opcode == ORI || opcode == ANDI)
 	{
 		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-		unsigned qk = UNDEFINED;
 		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
 		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = (instruction_memory[pc] & 65535);
 		float vkf = unsigned2float(UNDEFINED);
+		unsigned qj = UNDEFINED;
+		if (vj == UNDEFINED)
+		{
+			qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+		}
+		unsigned qk = UNDEFINED;
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
@@ -1499,18 +1571,22 @@ void sim_ooo::issue()
 			return;
 		}
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 	}
 	else if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
 		|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
 	{
 		destination = UNDEFINED;
-		unsigned qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
-		unsigned qk = UNDEFINED;
 		unsigned vj = get_int_register((instruction_memory[pc] >> 21) & 31);
 		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
 		float vkf = unsigned2float(UNDEFINED);
+		unsigned qj = UNDEFINED;
+		if (vj == UNDEFINED)
+		{
+			qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
+		}
+		unsigned qk = UNDEFINED;
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
@@ -1518,7 +1594,7 @@ void sim_ooo::issue()
 			return;
 		}
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 	}
 	else if (opcode == JUMP)
 	{
@@ -1536,7 +1612,7 @@ void sim_ooo::issue()
 			return;
 		}
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 	}
 	else if (opcode == EOP)
 	{
@@ -1554,7 +1630,7 @@ void sim_ooo::issue()
 			return;
 		}
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 	}
 
 
@@ -1603,6 +1679,7 @@ void sim_ooo::execute()
 						int_ex[i].vk = int_rs[j].vk;
 						int_ex[i].vjf = int_rs[j].vjf;
 						int_ex[i].vkf = int_rs[j].vkf;
+						int_ex[i].pc = int_rs[j].pc;
 						break;
 					}
 				}
@@ -1646,6 +1723,7 @@ void sim_ooo::execute()
 						add_ex[i].vk = add_rs[j].vk;
 						add_ex[i].vjf = add_rs[j].vjf;
 						add_ex[i].vkf = add_rs[j].vkf;
+						add_ex[i].pc = add_rs[j].pc;
 						break;
 					}
 				}
@@ -1688,6 +1766,7 @@ void sim_ooo::execute()
 
 						mem_ex[i].vj = load_rs[j].vj;
 						mem_ex[i].vk = load_rs[j].a;
+						mem_ex[i].pc = load_rs[j].pc;
 						break;
 					}
 				}
@@ -1733,6 +1812,7 @@ void sim_ooo::execute()
 							mult_ex[i].vk = mult_rs[j].vk;
 							mult_ex[i].vjf = mult_rs[j].vjf;
 							mult_ex[i].vkf = mult_rs[j].vkf;
+							mult_ex[i].pc = mult_rs[j].pc;
 							break;
 						}
 					}
@@ -1779,6 +1859,7 @@ void sim_ooo::execute()
 							div_ex[i].vk = mult_rs[j].vk;
 							div_ex[i].vjf = mult_rs[j].vjf;
 							div_ex[i].vkf = mult_rs[j].vkf;
+							div_ex[i].pc = mult_rs[j].pc;
 							break;
 						}
 					}
@@ -1856,6 +1937,7 @@ void sim_ooo::write_result()
 				write_rs(answer, int_ex[i].entry);
 				write_rob(answer, int_ex[i].entry);
 			}
+			find_and_clear_rs(int_ex[i].pc);
 		}
 	}
 	size = size_of_add_ex;
@@ -1871,6 +1953,7 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(add_ex[i]);
 			write_rs(answer, add_ex[i].entry);
 			write_rob(answer, add_ex[i].entry);
+			find_and_clear_rs(add_ex[i].pc);
 		}
 	}
 	size = size_of_mem_ex;
@@ -1898,6 +1981,7 @@ void sim_ooo::write_result()
 				write_rs(answer, mem_ex[i].entry);
 				write_rob(answer, mem_ex[i].entry);
 			}
+			find_and_clear_rs(mem_ex[i].pc);
 		}
 	}
 	size = size_of_mult_ex;
@@ -1913,6 +1997,7 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(mult_ex[i]);
 			write_rs(answer, mult_ex[i].entry);
 			write_rob(answer, mult_ex[i].entry);
+			find_and_clear_rs(mult_ex[i].pc);
 		}
 	}
 	size = size_of_div_ex;
@@ -1928,6 +2013,7 @@ void sim_ooo::write_result()
 			float answer = compute_result_fp(div_ex[i]);
 			write_rs(answer, div_ex[i].entry);
 			write_rob(answer, div_ex[i].entry);
+			find_and_clear_rs(div_ex[i].pc);
 		}
 	}
 }
@@ -1978,16 +2064,19 @@ void sim_ooo::commit()
 		{
 			int reg = convert_string_to_number(rob[pos].destination);
 			int_reg[reg].value = rob[pos].value;
+			int_reg[reg].entry = UNDEFINED;
 		}
 		else if (opcode == LWS)
 		{
 			int reg = convert_string_to_number(rob[pos].destination);
 			fp_reg[reg].value = rob[pos].value_f;
+			fp_reg[reg].entry = UNDEFINED;
 		}
 		else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
 		{
 			int reg = convert_string_to_number(rob[pos].destination);
 			fp_reg[reg].value = rob[pos].value_f;
+			fp_reg[reg].entry = UNDEFINED;
 		}
 		else if (opcode == EOP)
 		{
@@ -1998,6 +2087,7 @@ void sim_ooo::commit()
 		{
 			int reg = convert_string_to_number(rob[pos].destination);
 			int_reg[reg].value = rob[pos].value;
+			int_reg[reg].entry = UNDEFINED;
 		}
 
 		rob[pos] = clear_rob_entry(pos);
@@ -2049,12 +2139,23 @@ int sim_ooo::get_open_rob(read_order_buffer* rob)
 {
 	int station = -1;
 	int size = size_of_rob;
-	for (int i = 0; i < size; i++)
+
+	for (int i = open_rob_entry; i < size; i++)
 	{
 		if (!rob[i].busy)
 		{
 			station = i;
-			break;
+			open_rob_entry = station;
+			return station;
+		}
+	}
+	for (unsigned i = 0; i < open_rob_entry; i++)
+	{
+		if (!rob[i].busy)
+		{
+			station = i;
+			open_rob_entry = station;
+			return station;
 		}
 	}
 	return station;
@@ -2084,7 +2185,7 @@ void sim_ooo::write_to_rob_issue(unsigned instruction, unsigned open_rob, unsign
 	return;
 }
 
-void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a)
+void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a, unsigned open_rob)
 {
 	switch (rs)
 	{
@@ -2103,7 +2204,7 @@ void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool i
 		}
 		int_rs[open_rs].qj = qj;
 		int_rs[open_rs].qk = qk;
-		int_rs[open_rs].dest = open_rs;
+		int_rs[open_rs].dest = open_rob;
 		int_rs[open_rs].a = a;
 		int_rs[open_rs].pc = pc;
 		break;
@@ -2122,7 +2223,7 @@ void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool i
 		}
 		add_rs[open_rs].qj = qj;
 		add_rs[open_rs].qk = qk;
-		add_rs[open_rs].dest = open_rs;
+		add_rs[open_rs].dest = open_rob;
 		add_rs[open_rs].a = a;
 		add_rs[open_rs].pc = pc;
 		break;
@@ -2141,7 +2242,7 @@ void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool i
 		}
 		mult_rs[open_rs].qj = qj;
 		mult_rs[open_rs].qk = qk;
-		mult_rs[open_rs].dest = open_rs;
+		mult_rs[open_rs].dest = open_rob;
 		mult_rs[open_rs].a = a;
 		mult_rs[open_rs].pc = pc;
 		break;
@@ -2150,7 +2251,7 @@ void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool i
 		load_rs[open_rs].opcode = opcode;
 		load_rs[open_rs].vj = vj;
 		load_rs[open_rs].qj = qj;
-		load_rs[open_rs].dest = open_rs;
+		load_rs[open_rs].dest = open_rob;
 		load_rs[open_rs].a = a;
 		load_rs[open_rs].pc = pc;
 		break;
@@ -2161,26 +2262,12 @@ unsigned sim_ooo::get_q(unsigned i, bool int_or_float)
 {
 	if (int_or_float)
 	{
-		return int_reg[i].entry;
+		return get_pending_int_register(i);
 	}
 	else
 	{
-		return fp_reg[i].entry;
+		return get_pending_fp_register(i);
 	}
-}
-
-string sim_ooo::make_a(unsigned instruction, bool int_or_float)
-{
-	string a;
-	if (int_or_float)
-	{
-		a = "R" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
-	}
-	else
-	{
-		a = "F" + to_string(instruction & 31) + " + " + to_string((instruction >> 5) & 65536);
-	}
-	return a;
 }
 
 bool sim_ooo::station_ready(reservation_station rs)
@@ -2505,6 +2592,7 @@ void sim_ooo::flush_rob()
 		rob[i].state = "";
 		rob[i].value = UNDEFINED;
 		rob[i].value_f = (float)UNDEFINED;
+		open_rob_entry = 0;
 
 		iq[i].pc = UNDEFINED;
 		iq[i].Issue = UNDEFINED;
@@ -2595,7 +2683,47 @@ reservation_station sim_ooo::clear_rs(std::string name)
 	rs.qk = UNDEFINED;
 	rs.vj = UNDEFINED;
 	rs.vk = UNDEFINED;
-	rs.vjf = (float)UNDEFINED;
-	rs.vkf = (float)UNDEFINED;
+	rs.vjf = unsigned2float(UNDEFINED);
+	rs.vkf = unsigned2float(UNDEFINED);
 	return rs;
+}
+
+void sim_ooo::find_and_clear_rs(unsigned pc)
+{
+	int size = size_of_int_rs;
+	for (int i = 0; i < size; i++)
+	{
+		if (int_rs[i].pc == pc)
+		{
+			int_rs[i] = clear_rs(int_rs[i].name);
+			return;
+		}
+	}
+	size = size_of_add_rs;
+	for (int i = 0; i < size; i++)
+	{
+		if (add_rs[i].pc == pc)
+		{
+			add_rs[i] = clear_rs(add_rs[i].name);
+			return;
+		}
+	}
+	size = size_of_mult_rs;
+	for (int i = 0; i < size; i++)
+	{
+		if (mult_rs[i].pc == pc)
+		{
+			mult_rs[i] = clear_rs(mult_rs[i].name);
+			return;
+		}
+	}
+	size = size_of_load_rs;
+	for (int i = 0; i < size; i++)
+	{
+		if (load_rs[i].pc == pc)
+		{
+			load_rs[i] = clear_rs(load_rs[i].name);
+			return;
+		}
+	}
 }
