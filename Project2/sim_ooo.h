@@ -55,7 +55,8 @@ class sim_ooo{
 	bool stalled;
 
 	unsigned issue_max;
-	unsigned rob_entry;
+	unsigned size_of_rob, size_of_int_rs, size_of_add_rs, size_of_mult_rs, size_of_load_rs,
+		size_of_int_ex, size_of_add_ex, size_of_mult_ex, size_of_div_ex, size_of_mem_ex;
 public:
 
 	/* Instantiates the simulator
@@ -174,9 +175,9 @@ public:
 
 	int get_open_rob(read_order_buffer *rob);
 
-	void write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned entry, unsigned destination, bool int_or_float);
+	void write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned pc, unsigned destination, bool int_or_float);
 
-	void write_to_rs(unsigned open_rs, reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned dest, string a);
+	void write_to_rs(unsigned open_rs, reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a);
 
 	unsigned get_q(unsigned i, bool int_or_float);
 
@@ -185,8 +186,6 @@ public:
 	int get_vx(unsigned reg);
 
 	float get_vxf(unsigned reg);
-
-	int get_rob(read_order_buffer *rob, unsigned dest);
 
 	bool station_ready(reservation_station rs);
 
@@ -210,7 +209,7 @@ public:
 
 	void flush_rob();
 
-	read_order_buffer clear_rob_entry();
+	read_order_buffer clear_rob_entry(unsigned entry);
 
 	void flush_ex();
 
