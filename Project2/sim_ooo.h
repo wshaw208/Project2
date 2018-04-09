@@ -177,15 +177,11 @@ public:
 
 	void write_to_rob_issue(unsigned instruction, unsigned open_rob, unsigned pc, unsigned destination, bool int_or_float);
 
-	void write_to_rs(unsigned open_rs, reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a);
+	void write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a);
 
 	unsigned get_q(unsigned i, bool int_or_float);
 
 	string make_a(unsigned instruction, bool int_or_float);
-
-	int get_vx(unsigned reg);
-
-	float get_vxf(unsigned reg);
 
 	bool station_ready(reservation_station rs);
 

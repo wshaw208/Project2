@@ -159,10 +159,7 @@ sim_ooo::sim_ooo(unsigned mem_size,
 
 	rob = new read_order_buffer[rob_size];
 	size_of_rob = rob_size;
-	for (int i = 0; i < rob_size; i++)
-	{
-		rob[i].entry = i + 1;
-	}
+	flush_rob();
 }
 	
 sim_ooo::~sim_ooo()
@@ -891,11 +888,14 @@ void sim_ooo::issue()
 		}
 		destination = ((instruction_memory[pc] >> 21) & 31);
 		unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
-		unsigned vj = get_vx(instruction_memory[pc] & 31);
-		unsigned vjf = get_vxf(instruction_memory[pc] & 31);
+		unsigned qk = UNDEFINED;
+		unsigned vj = get_int_register(instruction_memory[pc] & 31);
+		float vjf = unsigned2float(UNDEFINED);
+		unsigned vk = UNDEFINED;
+		float vkf = unsigned2float(UNDEFINED);
 		unsigned a = (instruction_memory[pc] >> 5) & 65535;
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, load_rs, opcode, int_or_float, vj, vjf, UNDEFINED, UNDEFINED, qj, UNDEFINED, pc_entry, a);
+		write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 	}
 
 	else if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == OR
@@ -909,10 +909,10 @@ void sim_ooo::issue()
 		destination = ((instruction_memory[pc] >> 21) & 31);
 		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
 		unsigned qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
-		unsigned vj = get_vx((instruction_memory[pc] >> 16) & 31);
-		unsigned vjf = get_vxf((instruction_memory[pc] >> 16) & 31);
-		unsigned vk = get_vx((instruction_memory[pc] >> 11) & 31);
-		unsigned vkf = get_vxf((instruction_memory[pc] >> 11) & 31);
+		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
+		float vjf = get_fp_register((instruction_memory[pc] >> 16) & 31);
+		unsigned vk = get_int_register((instruction_memory[pc] >> 11) & 31);
+		float vkf = get_fp_register((instruction_memory[pc] >> 11) & 31);
 		unsigned a = UNDEFINED;
 		
 		if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == AND || opcode == OR)
@@ -922,7 +922,7 @@ void sim_ooo::issue()
 			{
 				return;
 			}
-			write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 		}
 		else if (opcode == ADDS || opcode == SUBS)
 		{
@@ -931,7 +931,7 @@ void sim_ooo::issue()
 			{
 				return;
 			}
-			write_to_rs(open_rs, add_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 2, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 		}
 		else if (opcode = MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
 		{
@@ -940,7 +940,7 @@ void sim_ooo::issue()
 			{
 				return;
 			}
-			write_to_rs(open_rs, mult_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+			write_to_rs(open_rs, 3, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 		}
 
 		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
@@ -951,17 +951,18 @@ void sim_ooo::issue()
 		destination = ((instruction_memory[pc] >> 21) & 31);
 		unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
 		unsigned qk = UNDEFINED;
-		unsigned vj = get_vx((instruction_memory[pc] >> 16) & 31);
-		unsigned vjf = (float)UNDEFINED;
+		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
+		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = (instruction_memory[pc] & 65535);
-		unsigned vkf = (float)UNDEFINED;
+		float vkf = unsigned2float(UNDEFINED);
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
 		{
 			return;
 		}
-		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 	}
 	else if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
 		|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
@@ -969,17 +970,18 @@ void sim_ooo::issue()
 		destination = UNDEFINED;
 		unsigned qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
 		unsigned qk = UNDEFINED;
-		unsigned vj = get_vx((instruction_memory[pc] >> 21) & 31);
-		unsigned vjf = (float)UNDEFINED;
+		unsigned vj = get_int_register((instruction_memory[pc] >> 21) & 31);
+		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
-		unsigned vkf = (float)UNDEFINED;
+		float vkf = unsigned2float(UNDEFINED);
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
 		{
 			return;
 		}
-		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 	}
 	else if (opcode == JUMP)
 	{
@@ -987,16 +989,17 @@ void sim_ooo::issue()
 		unsigned qj = UNDEFINED;
 		unsigned qk = UNDEFINED;
 		unsigned vj = UNDEFINED;
-		unsigned vjf = (float)UNDEFINED;
+		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
-		unsigned vkf = (float)UNDEFINED;
+		float vkf = unsigned2float(UNDEFINED);
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
 		{
 			return;
 		}
-		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 	}
 	else if (opcode == EOP)
 	{
@@ -1004,16 +1007,17 @@ void sim_ooo::issue()
 		unsigned qj = UNDEFINED;
 		unsigned qk = UNDEFINED;
 		unsigned vj = UNDEFINED;
-		unsigned vjf = (float)UNDEFINED;
+		float vjf = unsigned2float(UNDEFINED);
 		unsigned vk = UNDEFINED;
-		unsigned vkf = (float)UNDEFINED;
+		float vkf = unsigned2float(UNDEFINED);
 		unsigned a = UNDEFINED;
 		int open_rs = get_open_rs(int_rs);
 		if (open_rs == -1) // if no open reservation station we stall the issue stage
 		{
 			return;
 		}
-		write_to_rs(open_rs, int_rs, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
+		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a);
 	}
 
 
@@ -1043,23 +1047,26 @@ void sim_ooo::execute()
 		size = size_of_int_rs;
 		for (int j = 0; j < size; j++)
 		{
-			int rob_entry = int_rs[j].dest;// gets the rob that the instruction is held in
-			if (rob[rob_entry].state == "ISSUE")
+			unsigned rob_entry = int_rs[j].dest;// gets the rob that the instruction is held in
+			if (rob_entry >= 0 && rob_entry <= size_of_rob)
 			{
-
-				if (station_ready(int_rs[j]))//checks if we have all values necessary to compute
+				if (rob[rob_entry].state == "ISSUE")
 				{
-					//if everything checks out then we move the instruction in the exe unit
-					rob[rob_entry].state = "EXE";
-					int_ex[i].busy = true;
-					int_ex[i].ttf = int_ex[i].delay;
-					int_ex[i].entry = int_rs[j].dest;
-					int_ex[i].opcode = int_rs[j].opcode;
-					int_ex[i].vj = int_rs[j].vj;
-					int_ex[i].vk = int_rs[j].vk;
-					int_ex[i].vjf = int_rs[j].vjf;
-					int_ex[i].vkf = int_rs[j].vkf;
-					break;
+
+					if (station_ready(int_rs[j]))//checks if we have all values necessary to compute
+					{
+						//if everything checks out then we move the instruction in the exe unit
+						rob[rob_entry].state = "EXE";
+						int_ex[i].busy = true;
+						int_ex[i].ttf = int_ex[i].delay;
+						int_ex[i].entry = int_rs[j].dest;
+						int_ex[i].opcode = int_rs[j].opcode;
+						int_ex[i].vj = int_rs[j].vj;
+						int_ex[i].vk = int_rs[j].vk;
+						int_ex[i].vjf = int_rs[j].vjf;
+						int_ex[i].vkf = int_rs[j].vkf;
+						break;
+					}
 				}
 			}
 		}
@@ -1071,7 +1078,7 @@ void sim_ooo::execute()
 	{
 		if (!add_ex[i].busy)
 		{
-			ex_open = false;
+			ex_open = true;
 			break; // we have an open ex_unit so end loop
 		}
 	}
@@ -1082,23 +1089,26 @@ void sim_ooo::execute()
 		size = size_of_add_rs;
 		for (int j = 0; j < size; j++)
 		{
-			int rob_entry = add_rs[j].dest;// gets the rob that the instruction is held in
-			if (rob[rob_entry].state == "ISSUE")
+			unsigned rob_entry = add_rs[j].dest;// gets the rob that the instruction is held in
+			if (rob_entry >= 0 && rob_entry <= size_of_rob)
 			{
-
-				if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+				if (rob[rob_entry].state == "ISSUE")
 				{
-					//if everything checks out then we move the instruction in the exe unit
-					rob[rob_entry].state = "EXE";
-					add_ex[i].busy = true;
-					add_ex[i].ttf = add_ex[i].delay;
-					add_ex[i].entry = add_rs[j].dest;
-					add_ex[i].opcode = add_rs[j].opcode;
-					add_ex[i].vj = add_rs[j].vj;
-					add_ex[i].vk = add_rs[j].vk;
-					add_ex[i].vjf = add_rs[j].vjf;
-					add_ex[i].vkf = add_rs[j].vkf;
-					break;
+
+					if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+					{
+						//if everything checks out then we move the instruction in the exe unit
+						rob[rob_entry].state = "EXE";
+						add_ex[i].busy = true;
+						add_ex[i].ttf = add_ex[i].delay;
+						add_ex[i].entry = add_rs[j].dest;
+						add_ex[i].opcode = add_rs[j].opcode;
+						add_ex[i].vj = add_rs[j].vj;
+						add_ex[i].vk = add_rs[j].vk;
+						add_ex[i].vjf = add_rs[j].vjf;
+						add_ex[i].vkf = add_rs[j].vkf;
+						break;
+					}
 				}
 			}
 		}
@@ -1110,7 +1120,7 @@ void sim_ooo::execute()
 	{
 		if (!mem_ex[i].busy)
 		{
-			ex_open = false;
+			ex_open = true;
 			break; // we have an open ex_unit so end loop
 		}
 	}
@@ -1121,24 +1131,25 @@ void sim_ooo::execute()
 		size = size_of_load_rs;
 		for (int j = 0; j < size; j++)
 		{
-			int rob_entry = load_rs[j].dest;// gets the rob that the instruction is held in
-			if (rob[rob_entry].state == "ISSUE")
+			unsigned rob_entry = load_rs[j].dest;// gets the rob that the instruction is held in
+			if (rob_entry >= 0 && rob_entry <= size_of_rob)
 			{
-
-				if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+				if (rob[rob_entry].state == "ISSUE")
 				{
-					//if everything checks out then we move the instruction in the exe unit
-					rob[rob_entry].state = "EXE";
-					mem_ex[i].busy = true;
-					mem_ex[i].ttf = mem_ex[i].delay;
-					mem_ex[i].entry = load_rs[j].dest;
-					mem_ex[i].opcode = load_rs[j].opcode;
-					
-					mem_ex[i].vj = load_rs[j].vj;
-					mem_ex[i].vk = load_rs[j].vk;
-					mem_ex[i].vjf = load_rs[j].vjf;
-					mem_ex[i].vkf = load_rs[j].vkf;
-					break;
+
+					if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+					{
+						//if everything checks out then we move the instruction in the exe unit
+						rob[rob_entry].state = "EXE";
+						mem_ex[i].busy = true;
+						mem_ex[i].ttf = mem_ex[i].delay;
+						mem_ex[i].entry = load_rs[j].dest;
+						mem_ex[i].opcode = load_rs[j].opcode;
+
+						mem_ex[i].vj = load_rs[j].vj;
+						mem_ex[i].vk = load_rs[j].a;
+						break;
+					}
 				}
 			}
 		}
@@ -1150,7 +1161,7 @@ void sim_ooo::execute()
 	{
 		if (!mult_ex[i].busy)
 		{
-			ex_open = false;
+			ex_open = true;
 			break; // we have an open ex_unit so end loop
 		}
 	}
@@ -1161,25 +1172,28 @@ void sim_ooo::execute()
 		size = size_of_mult_rs;
 		for (int j = 0; j < size; j++)
 		{
-			int rob_entry = mult_rs[j].dest;// gets the rob that the instruction is held in
-			if (rob[rob_entry].state == "ISSUE")
+			unsigned rob_entry = mult_rs[j].dest;// gets the rob that the instruction is held in
+			if (rob_entry >= 0 && rob_entry <= size_of_rob)
 			{
-
-				if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
+				if (rob[rob_entry].state == "ISSUE")
 				{
-					if (mult_rs[j].opcode == MULT || mult_rs[j].opcode == MULTS)
+
+					if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
 					{
-						//if everything checks out then we move the instruction in the exe unit
-						rob[rob_entry].state = "EXE";
-						mult_ex[i].busy = true;
-						mult_ex[i].ttf = mult_ex[i].delay;
-						mult_ex[i].entry = mult_rs[j].dest;
-						mult_ex[i].opcode = mult_rs[j].opcode;
-						mult_ex[i].vj = mult_rs[j].vj;
-						mult_ex[i].vk = mult_rs[j].vk;
-						mult_ex[i].vjf = mult_rs[j].vjf;
-						mult_ex[i].vkf = mult_rs[j].vkf;
-						break;
+						if (mult_rs[j].opcode == MULT || mult_rs[j].opcode == MULTS)
+						{
+							//if everything checks out then we move the instruction in the exe unit
+							rob[rob_entry].state = "EXE";
+							mult_ex[i].busy = true;
+							mult_ex[i].ttf = mult_ex[i].delay;
+							mult_ex[i].entry = mult_rs[j].dest;
+							mult_ex[i].opcode = mult_rs[j].opcode;
+							mult_ex[i].vj = mult_rs[j].vj;
+							mult_ex[i].vk = mult_rs[j].vk;
+							mult_ex[i].vjf = mult_rs[j].vjf;
+							mult_ex[i].vkf = mult_rs[j].vkf;
+							break;
+						}
 					}
 				}
 			}
@@ -1192,7 +1206,7 @@ void sim_ooo::execute()
 	{
 		if (!div_ex[i].busy)
 		{
-			ex_open = false;
+			ex_open = true;
 			break; // we have an open ex_unit so end loop
 		}
 	}
@@ -1203,25 +1217,28 @@ void sim_ooo::execute()
 		size = size_of_mult_rs;
 		for (int j = 0; j < size; j++)
 		{
-			int rob_entry = mult_rs[j].dest;// gets the rob that the instruction is held in
-			if (rob[rob_entry].state == "ISSUE")
+			unsigned rob_entry = mult_rs[j].dest;// gets the rob that the instruction is held in
+			if (rob_entry >= 0 && rob_entry <= size_of_rob)
 			{
-
-				if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
+				if (rob[rob_entry].state == "ISSUE")
 				{
-					if (mult_rs[j].opcode == DIV || mult_rs[j].opcode == DIVS)
+
+					if (station_ready(mult_rs[j]))//checks if we have all values necessary to compute
 					{
-						//if everything checks out then we move the instruction in the exe unit
-						rob[rob_entry].state = "EXE";
-						div_ex[i].busy = true;
-						div_ex[i].ttf = div_ex[i].delay;
-						div_ex[i].entry = mult_rs[j].dest;
-						div_ex[i].opcode = mult_rs[j].opcode;
-						div_ex[i].vj = mult_rs[j].vj;
-						div_ex[i].vk = mult_rs[j].vk;
-						div_ex[i].vjf = mult_rs[j].vjf;
-						div_ex[i].vkf = mult_rs[j].vkf;
-						break;
+						if (mult_rs[j].opcode == DIV || mult_rs[j].opcode == DIVS)
+						{
+							//if everything checks out then we move the instruction in the exe unit
+							rob[rob_entry].state = "EXE";
+							div_ex[i].busy = true;
+							div_ex[i].ttf = div_ex[i].delay;
+							div_ex[i].entry = mult_rs[j].dest;
+							div_ex[i].opcode = mult_rs[j].opcode;
+							div_ex[i].vj = mult_rs[j].vj;
+							div_ex[i].vk = mult_rs[j].vk;
+							div_ex[i].vjf = mult_rs[j].vjf;
+							div_ex[i].vkf = mult_rs[j].vkf;
+							break;
+						}
 					}
 				}
 			}
@@ -1312,10 +1329,13 @@ void sim_ooo::write_result()
 	{
 		if (mem_ex[i].ttf == 0)
 		{
-			if (mem_ex[i].opcode == LW || mem_ex[i].opcode == SW)
+			if (mem_ex[i].opcode == LW || mem_ex[i].opcode == SW || mem_ex[i].opcode == SWS)
 			{
 				int answer = compute_address_int(mem_ex[i]);
-				write_rs(answer, mem_ex[i].entry);
+				if (mem_ex[i].opcode == LW)
+				{
+					write_rs(answer, mem_ex[i].entry);
+				}
 				write_rob(answer, mem_ex[i].entry);
 			}
 			else
@@ -1391,7 +1411,7 @@ void sim_ooo::commit()
 		else if (opcode == SWS)
 		{
 			int reg = convert_string_to_number(rob[pos].destination);
-			write_memory((int)rob[pos].value_f, fp_reg[reg].value);
+			write_memory(rob[pos].value, float2unsigned(fp_reg[reg].value));
 		}
 		else if (opcode == LW)
 		{
@@ -1497,25 +1517,77 @@ void sim_ooo::write_to_rob_issue(unsigned instruction, unsigned open_rob, unsign
 	return;
 }
 
-void sim_ooo::write_to_rs(unsigned open_rs,reservation_station *rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a)
+void sim_ooo::write_to_rs(unsigned open_rs, unsigned rs, unsigned opcode, bool int_or_float, int vj, int vk, float vjf, float vkf, unsigned qj, unsigned qk, unsigned pc, unsigned a)
 {
-	rs[open_rs].busy = true;
-	rs[open_rs].opcode = opcode;
-	if (int_or_float)
+	switch (rs)
 	{
-		rs[open_rs].vj = vj;
-		rs[open_rs].vk = vk;
+	case 1:
+		int_rs[open_rs].busy = true;
+		int_rs[open_rs].opcode = opcode;
+		if (int_or_float)
+		{
+			int_rs[open_rs].vj = vj;
+			int_rs[open_rs].vk = vk;
+		}
+		else
+		{
+			int_rs[open_rs].vjf = vjf;
+			int_rs[open_rs].vkf = vkf;
+		}
+		int_rs[open_rs].qj = qj;
+		int_rs[open_rs].qk = qk;
+		int_rs[open_rs].dest = open_rs;
+		int_rs[open_rs].a = a;
+		int_rs[open_rs].pc = pc;
+		break;
+	case 2:
+		add_rs[open_rs].busy = true;
+		add_rs[open_rs].opcode = opcode;
+		if (int_or_float)
+		{
+			add_rs[open_rs].vj = vj;
+			add_rs[open_rs].vk = vk;
+		}
+		else
+		{
+			add_rs[open_rs].vjf = vjf;
+			add_rs[open_rs].vkf = vkf;
+		}
+		add_rs[open_rs].qj = qj;
+		add_rs[open_rs].qk = qk;
+		add_rs[open_rs].dest = open_rs;
+		add_rs[open_rs].a = a;
+		add_rs[open_rs].pc = pc;
+		break;
+	case 3:
+		mult_rs[open_rs].busy = true;
+		mult_rs[open_rs].opcode = opcode;
+		if (int_or_float)
+		{
+			mult_rs[open_rs].vj = vj;
+			mult_rs[open_rs].vk = vk;
+		}
+		else
+		{
+			mult_rs[open_rs].vjf = vjf;
+			mult_rs[open_rs].vkf = vkf;
+		}
+		mult_rs[open_rs].qj = qj;
+		mult_rs[open_rs].qk = qk;
+		mult_rs[open_rs].dest = open_rs;
+		mult_rs[open_rs].a = a;
+		mult_rs[open_rs].pc = pc;
+		break;
+	case 4:
+		load_rs[open_rs].busy = true;
+		load_rs[open_rs].opcode = opcode;
+		load_rs[open_rs].vj = vj;
+		load_rs[open_rs].qj = qj;
+		load_rs[open_rs].dest = open_rs;
+		load_rs[open_rs].a = a;
+		load_rs[open_rs].pc = pc;
+		break;
 	}
-	else
-	{
-		rs[open_rs].vjf = vjf;
-		rs[open_rs].vkf = vkf;
-	}
-	rs[open_rs].qj = qj;
-	rs[open_rs].qk = qk;
-	rs[open_rs].dest = open_rs;
-	rs[open_rs].a = a;
-	rs[open_rs].pc = pc;
 }
 
 unsigned sim_ooo::get_q(unsigned i, bool int_or_float)
@@ -1544,34 +1616,10 @@ string sim_ooo::make_a(unsigned instruction, bool int_or_float)
 	return a;
 }
 
-int sim_ooo::get_vx(unsigned reg)
-{
-	if (int_reg[reg].entry != UNDEFINED)
-	{
-		return int_reg[reg].value;
-	}
-	else
-	{
-		return UNDEFINED;
-	}
-}
-
-float sim_ooo::get_vxf(unsigned reg)
-{
-	if (int_reg[reg].entry != UNDEFINED)
-	{
-		return fp_reg[reg].value;
-	}
-	else
-	{
-		return (float)UNDEFINED;
-	}
-}
-
 bool sim_ooo::station_ready(reservation_station rs)
 {
 	bool ready = false;
-	if (rs.qj == UNDEFINED && rs.qk == UNDEFINED)
+	if ((rs.qj < 0 || rs.qj > size_of_rob) && (rs.qk < 0 || rs.qk > size_of_rob))
 	{
 		ready = true;
 	}
@@ -1718,11 +1766,7 @@ float sim_ooo::compute_address_fp(ex_unit ex)
 		answer += data_memory[ex.vj + ex.vk + 1];
 		answer = answer << 8;
 		answer += data_memory[ex.vj + ex.vk + 0];
-		ans = (float)answer;
-	}
-	else
-	{
-		ans = (float)(ex.vj + ex.vk);
+		ans = unsigned2float(answer);
 	}
 	return ans;
 }
