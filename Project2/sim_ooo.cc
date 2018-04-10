@@ -24,6 +24,7 @@ struct reservation_station
 	unsigned qj, qk, dest;
 	unsigned a;
 	unsigned pc;
+	bool wb = false;
 };
 
 struct ex_unit
@@ -785,10 +786,21 @@ void sim_ooo::print_rob(){
 		{
 			cout << setw(12) << "-" << setw(8);
 		}
-		cout << setfill(' ') << setw(10) << state << setw(6) << dest;
+		cout << setfill(' ') << setw(10) << state << setw(6);
+		unsigned opcode = (rob[i].instruction >> 26) & 31;
+		if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+			|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ
+			|| opcode == JUMP)
+		{
+			cout << "-";
+		}
+		else
+		{
+			cout << dest;
+		}
 		if (good_value)
 		{
-			cout << setw(2) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
+			cout << setw(4) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
 		}
 		else
 		{
@@ -836,7 +848,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 3:
-				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536)
+				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536 && int_rs[i].vj != UNDEFINED)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vj << setfill(' ');
 				}
@@ -846,7 +858,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 4:
-				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536)
+				if (int_rs[i].vk < 65536 && int_rs[i].vk > -65536 && int_rs[i].vk != UNDEFINED)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vk << setfill(' ');
 				}
@@ -886,14 +898,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 8:
-				if (int_rs[i].dest < size_of_rob)
-				{
-					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].a << setfill(' ') << endl;
-				}
-				else
-				{
-					cout << setw(12) << "-" << setw(8) << endl;
-				}
+				cout << setw(12) << "-" << setw(8) << endl;
 				break;
 			}
 		}
@@ -1535,11 +1540,11 @@ void sim_ooo::issue()
 			destination = UNDEFINED;
 			unsigned vj = get_int_register((instruction_memory[pc] >> 21) & 31);
 			float vjf = unsigned2float(UNDEFINED);
-			unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
+			unsigned vk = UNDEFINED;
 			float vkf = unsigned2float(UNDEFINED);
 			unsigned qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
 			unsigned qk = UNDEFINED;
-			unsigned a = UNDEFINED;
+			unsigned a = (instruction_memory[pc] & 65535) + base_Address;
 			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
@@ -1555,9 +1560,9 @@ void sim_ooo::issue()
 			unsigned qk = UNDEFINED;
 			unsigned vj = UNDEFINED;
 			float vjf = unsigned2float(UNDEFINED);
-			unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
+			unsigned vk = UNDEFINED;
 			float vkf = unsigned2float(UNDEFINED);
-			unsigned a = UNDEFINED;
+			unsigned a = (instruction_memory[pc] & 65535) + base_Address;
 			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
@@ -1627,7 +1632,16 @@ void sim_ooo::execute()
 						int_ex[i].entry = int_rs[j].dest;
 						int_ex[i].opcode = int_rs[j].opcode;
 						int_ex[i].vj = int_rs[j].vj;
-						int_ex[i].vk = int_rs[j].vk;
+						if (int_rs[j].opcode == BEQZ || int_rs[j].opcode == BNEZ || int_rs[j].opcode == BLTZ
+							|| int_rs[j].opcode == BGTZ || int_rs[j].opcode == BLEZ || int_rs[j].opcode == BGEZ
+							|| int_rs[j].opcode == JUMP) // if a branch instruction write address to vk for computation
+						{
+							int_ex[j].vk = int_rs[j].a;
+						}
+						else
+						{
+							int_ex[i].vk = int_rs[j].vk;
+						}
 						int_ex[i].vjf = int_rs[j].vjf;
 						int_ex[i].vkf = int_rs[j].vkf;
 						int_ex[i].pc = int_rs[j].pc;
@@ -1873,7 +1887,7 @@ void sim_ooo::write_result()
 		if (int_ex[i].ttf == 0)
 		{
 			//clear ex unit after writing result
-			int_ex[i] = clear_ex_unit(int_ex[i].name);
+			int_ex[i] = clear_ex_unit(int_ex[i].name,int_ex[i].delay);
 		}
 		if (int_ex[i].ttf == 1)
 		{
@@ -1897,7 +1911,7 @@ void sim_ooo::write_result()
 		if (add_ex[i].ttf == 0)
 		{
 			//clear ex unit after writing result
-			add_ex[i] = clear_ex_unit(add_ex[i].name);
+			add_ex[i] = clear_ex_unit(add_ex[i].name,add_ex[i].delay);
 		}
 		if (add_ex[i].ttf == 1)
 		{
@@ -1913,7 +1927,7 @@ void sim_ooo::write_result()
 		if (mem_ex[i].ttf == 0)
 		{
 			//clear ex unit after writing result
-			mem_ex[i] = clear_ex_unit(mem_ex[i].name);
+			mem_ex[i] = clear_ex_unit(mem_ex[i].name,mem_ex[i].delay);
 		}
 		if (mem_ex[i].ttf == 1)
 		{
@@ -1941,7 +1955,7 @@ void sim_ooo::write_result()
 		if (mult_ex[i].ttf == 0)
 		{
 			//clear ex unit after writing result
-			mult_ex[i] = clear_ex_unit(mult_ex[i].name);
+			mult_ex[i] = clear_ex_unit(mult_ex[i].name,mult_ex[i].delay);
 		}
 		if (mult_ex[i].ttf == 1)
 		{
@@ -1957,7 +1971,7 @@ void sim_ooo::write_result()
 		if (div_ex[i].ttf == 0)
 		{
 			//clear ex unit after writing result
-			div_ex[i] = clear_ex_unit(div_ex[i].name);
+			div_ex[i] = clear_ex_unit(div_ex[i].name,div_ex[i].delay);
 		}
 		if (div_ex[i].ttf == 1)
 		{
@@ -1972,6 +1986,7 @@ void sim_ooo::write_result()
 void sim_ooo::commit()
 {
 	//find the lowest entry
+	clear_write_back_check();
 	for (int i = 0; i < issue_max; i++)
 	{
 		unsigned entry = rob[0].pc;
@@ -2253,7 +2268,10 @@ bool sim_ooo::station_ready(reservation_station rs)
 	bool ready = false;
 	if ((rs.qj < 0 || rs.qj > size_of_rob) && (rs.qk < 0 || rs.qk > size_of_rob))
 	{
-		ready = true;
+		if (!rs.wb)//checks to see if qj or qk have been written back this cycle
+		{
+			ready = true;
+		}
 	}
 	return ready;
 }
@@ -2413,11 +2431,13 @@ void sim_ooo::write_rs(int answer, unsigned dest)
 		{
 			int_rs[i].qj = UNDEFINED;
 			int_rs[i].vj = answer;
+			int_rs[i].wb = true;
 		}
 		if (int_rs[i].qk == dest)
 		{
 			int_rs[i].qk = UNDEFINED;
 			int_rs[i].vk = answer;
+			int_rs[i].wb = true;
 		}
 	}
 	size = size_of_add_rs;
@@ -2427,11 +2447,13 @@ void sim_ooo::write_rs(int answer, unsigned dest)
 		{
 			add_rs[i].qj = UNDEFINED;
 			add_rs[i].vj = answer;
+			add_rs[i].wb = true;
 		}
 		if (add_rs[i].qk == dest)
 		{
 			add_rs[i].qk = UNDEFINED;
 			add_rs[i].vk = answer;
+			add_rs[i].wb = true;
 		}
 	}
 	size = size_of_mult_rs;
@@ -2441,11 +2463,13 @@ void sim_ooo::write_rs(int answer, unsigned dest)
 		{
 			mult_rs[i].qj = UNDEFINED;
 			mult_rs[i].vj = answer;
+			mult_rs[i].wb = true;
 		}
 		if (mult_rs[i].qk == dest)
 		{
 			mult_rs[i].qk = UNDEFINED;
 			mult_rs[i].vk = answer;
+			mult_rs[i].wb = true;
 		}
 	}
 	size = size_of_load_rs;
@@ -2455,11 +2479,13 @@ void sim_ooo::write_rs(int answer, unsigned dest)
 		{
 			load_rs[i].qj = UNDEFINED;
 			load_rs[i].vj = answer;
+			load_rs[i].wb = true;
 		}
 		if (load_rs[i].qk == dest)
 		{
 			load_rs[i].qk = UNDEFINED;
 			load_rs[i].vk = answer;
+			load_rs[i].wb = true;
 		}
 	}
 }
@@ -2474,11 +2500,13 @@ void sim_ooo::write_rs(float answer, unsigned dest)
 		{
 			int_rs[i].qj = UNDEFINED;
 			int_rs[i].vjf = answer;
+			int_rs[i].wb = true;
 		}
 		if (int_rs[i].qk == dest)
 		{
 			int_rs[i].qk = UNDEFINED;
 			int_rs[i].vkf = answer;
+			int_rs[i].wb = true;
 		}
 	}
 	size = size_of_add_rs;
@@ -2488,11 +2516,13 @@ void sim_ooo::write_rs(float answer, unsigned dest)
 		{
 			add_rs[i].qj = UNDEFINED;
 			add_rs[i].vjf = answer;
+			add_rs[i].wb = true;
 		}
 		if (add_rs[i].qk == dest)
 		{
 			add_rs[i].qk = UNDEFINED;
 			add_rs[i].vkf = answer;
+			add_rs[i].wb = true;
 		}
 	}
 	size = size_of_mult_rs;
@@ -2502,11 +2532,13 @@ void sim_ooo::write_rs(float answer, unsigned dest)
 		{
 			mult_rs[i].qj = UNDEFINED;
 			mult_rs[i].vjf = answer;
+			mult_rs[i].wb = true;
 		}
 		if (mult_rs[i].qk == dest)
 		{
 			mult_rs[i].qk = UNDEFINED;
 			mult_rs[i].vkf = answer;
+			mult_rs[i].wb = true;
 		}
 	}
 	size = size_of_load_rs;
@@ -2516,11 +2548,13 @@ void sim_ooo::write_rs(float answer, unsigned dest)
 		{
 			load_rs[i].qj = UNDEFINED;
 			load_rs[i].vjf = answer;
+			load_rs[i].wb = true;
 		}
 		if (load_rs[i].qk == dest)
 		{
 			load_rs[i].qk = UNDEFINED;
 			load_rs[i].vkf = answer;
+			load_rs[i].wb = true;
 		}
 	}
 }
@@ -2528,7 +2562,8 @@ void sim_ooo::write_rs(float answer, unsigned dest)
 void sim_ooo::write_rob(int answer, unsigned entry)
 {
 	rob[entry].value = answer;
-	rob[entry].state = "Write";
+	rob[entry].state = "WR";
+	iq[entry].WR = clock_cycles;
 	rob[entry].ready = true;
 }
 
@@ -2541,7 +2576,7 @@ void sim_ooo::write_rob(float answer, unsigned entry)
 	rob[entry].ready = true;
 }
 
-ex_unit sim_ooo::clear_ex_unit(std::string name)
+ex_unit sim_ooo::clear_ex_unit(std::string name, unsigned delay)
 {
 	ex_unit ex;
 	ex.name = name;
@@ -2549,6 +2584,7 @@ ex_unit sim_ooo::clear_ex_unit(std::string name)
 	ex.entry = UNDEFINED;
 	ex.opcode = UNDEFINED;
 	ex.ttf = UNDEFINED;
+	ex.delay = delay;
 	ex.vj = UNDEFINED;
 	ex.vk = UNDEFINED;
 	ex.vjf = (float)UNDEFINED;
@@ -2600,27 +2636,27 @@ void sim_ooo::flush_ex()
 	int size = size_of_int_ex;
 	for (int i = 0; i < size; i++)
 	{
-		int_ex[i] = clear_ex_unit(int_ex[i].name);
+		int_ex[i] = clear_ex_unit(int_ex[i].name,int_ex[i].delay);
 	}
 	size = size_of_add_ex;
 	for (int i = 0; i < size; i++)
 	{
-		add_ex[i] = clear_ex_unit(add_ex[i].name);
+		add_ex[i] = clear_ex_unit(add_ex[i].name, add_ex[i].delay);
 	}
 	size = size_of_mult_ex;
 	for (int i = 0; i < size; i++)
 	{
-		mult_ex[i] = clear_ex_unit(mult_ex[i].name);
+		mult_ex[i] = clear_ex_unit(mult_ex[i].name, mult_ex[i].delay);
 	}
 	size = size_of_div_ex;
 	for (int i = 0; i < size; i++)
 	{
-		div_ex[i] = clear_ex_unit(div_ex[i].name);
+		div_ex[i] = clear_ex_unit(div_ex[i].name, div_ex[i].delay);
 	}
 	size = size_of_mem_ex;
 	for (int i = 0; i < size; i++)
 	{
-		mem_ex[i] = clear_ex_unit(mem_ex[i].name);
+		mem_ex[i] = clear_ex_unit(mem_ex[i].name, mem_ex[i].delay);
 	}
 }
 
@@ -2663,6 +2699,7 @@ reservation_station sim_ooo::clear_rs(std::string name)
 	rs.vk = UNDEFINED;
 	rs.vjf = unsigned2float(UNDEFINED);
 	rs.vkf = unsigned2float(UNDEFINED);
+	rs.wb = false;
 	return rs;
 }
 
@@ -2703,5 +2740,30 @@ void sim_ooo::find_and_clear_rs(unsigned pc)
 			load_rs[i] = clear_rs(load_rs[i].name);
 			return;
 		}
+	}
+}
+
+void sim_ooo::clear_write_back_check()
+{
+	int size, i;
+	size = size_of_int_rs;
+	for (i = 0; i < size; i++)
+	{
+		int_rs[i].wb = false;
+	}
+	size = size_of_add_rs;
+	for (i = 0; i < size; i++)
+	{
+		add_rs[i].wb = false;
+	}
+	size = size_of_mult_rs;
+	for (i = 0; i < size; i++)
+	{
+		mult_rs[i].wb = false;
+	}
+	size = size_of_load_rs;
+	for (i = 0; i < size; i++)
+	{
+		load_rs[i].wb = false;
 	}
 }

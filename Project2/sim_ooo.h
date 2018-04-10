@@ -199,7 +199,7 @@ public:
 
 	void write_rob(float answer, unsigned entry);
 
-	ex_unit clear_ex_unit(std::string name);
+	ex_unit clear_ex_unit(std::string name, unsigned delay);
 
 	void flush_rob();
 
@@ -212,6 +212,8 @@ public:
 	reservation_station clear_rs(std::string name);
 
 	void find_and_clear_rs(unsigned pc);
+
+	void clear_write_back_check();
 };
 
 #endif /*SIM_OOO_H_*/
