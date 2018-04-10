@@ -595,7 +595,7 @@ void sim_ooo::reset()
 	{
 		int_reg[i].value = UNDEFINED;
 		int_reg[i].entry = UNDEFINED;
-		fp_reg[i].value = (float)UNDEFINED;
+		fp_reg[i].value = (float)(UNDEFINED);
 		fp_reg[i].entry = UNDEFINED;
 	}
 	clock_cycles = 0;
@@ -785,14 +785,14 @@ void sim_ooo::print_rob(){
 		{
 			cout << setw(12) << "-" << setw(8);
 		}
-		cout << setfill(' ') << setw(10) << state << setw(6) << dest << setw(12);
+		cout << setfill(' ') << setw(10) << state << setw(6) << dest;
 		if (good_value)
 		{
-			cout << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
+			cout << setw(2) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
 		}
 		else
 		{
-			cout << "-" << setw(8);
+			cout << setw(12) << "-" << setw(8);
 		}
 		cout << endl;
 	}
@@ -929,7 +929,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				break;
 			case 3:
-				if (load_rs[i].vj != UNDEFINED)
+				if (load_rs[i].vj < 100000 && load_rs[i].vj > -100000 && load_rs[i].vj != UNDEFINED)
 				{
 					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << load_rs[i].vj << setfill(' ');
 				}
@@ -1017,7 +1017,7 @@ void sim_ooo::print_reservation_stations(){
 			case 3:
 				if (add_rs[i].opcode == ADDS || add_rs[i].opcode == SUBS)
 				{
-					if (add_rs[i].vjf < 100000.00 && add_rs[i].vjf > -100000.00)
+					if (add_rs[i].vjf < 100000.00 && add_rs[i].vjf > -100000.00 && add_rs[i].vjf != unsigned2float(UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(add_rs[i].vjf) << setfill(' ');
 					}
@@ -1028,7 +1028,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (add_rs[i].vj < 100000 && add_rs[i].vj > -100000)
+					if (add_rs[i].vj < 100000 && add_rs[i].vj > -100000 && add_rs[i].vj != (UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << add_rs[i].vj << setfill(' ');
 					}
@@ -1041,7 +1041,7 @@ void sim_ooo::print_reservation_stations(){
 			case 4:
 				if (add_rs[i].opcode == ADDS || add_rs[i].opcode == SUBS)
 				{
-					if (add_rs[i].vjf < 100000.00 && add_rs[i].vjf > -100000.00)
+					if (add_rs[i].vkf < 100000.00 && add_rs[i].vkf > -100000.00 && add_rs[i].vkf != unsigned2float(UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(add_rs[i].vkf) << setfill(' ');
 					}
@@ -1052,7 +1052,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (add_rs[i].vj < 100000 && add_rs[i].vj > -100000)
+					if (add_rs[i].vk < 100000 && add_rs[i].vk > -100000 && add_rs[i].vk != (UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << add_rs[i].vk << setfill(' ');
 					}
@@ -1131,7 +1131,7 @@ void sim_ooo::print_reservation_stations(){
 			case 3:
 				if (mult_rs[i].opcode == MULTS || mult_rs[i].opcode == DIVS)
 				{
-					if (mult_rs[i].vj < 100000.00 && mult_rs[i].vj > -100000.00)
+					if (mult_rs[i].vjf < 100000.00 && mult_rs[i].vjf > -100000.00 && mult_rs[i].vjf != unsigned2float(UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(mult_rs[i].vjf) << setfill(' ');
 					}
@@ -1142,7 +1142,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (mult_rs[i].vj < 100000 && mult_rs[i].vj > -100000)
+					if (mult_rs[i].vj < 100000 && mult_rs[i].vj > -100000 && mult_rs[i].vj != (UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << mult_rs[i].vj << setfill(' ');
 					}
@@ -1155,7 +1155,7 @@ void sim_ooo::print_reservation_stations(){
 			case 4:
 				if (mult_rs[i].opcode == MULTS || mult_rs[i].opcode == DIVS)
 				{
-					if (mult_rs[i].vj < 100000.00 && mult_rs[i].vj > -100000.00)
+					if (mult_rs[i].vkf < 100000.00 && mult_rs[i].vkf > -100000.00 && mult_rs[i].vkf != unsigned2float(UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << float2unsigned(mult_rs[i].vkf) << setfill(' ');
 					}
@@ -1166,7 +1166,7 @@ void sim_ooo::print_reservation_stations(){
 				}
 				else
 				{
-					if (mult_rs[i].vj < 100000 && mult_rs[i].vj > -100000)
+					if (mult_rs[i].vk < 100000 && mult_rs[i].vk > -100000 && mult_rs[i].vk != (UNDEFINED))
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << mult_rs[i].vk << setfill(' ');
 					}
@@ -1430,211 +1430,162 @@ bool sim_ooo::branchIf(unsigned opcode, unsigned a)
 
 void sim_ooo::issue()
 {
-	bool int_or_float = true;
-	int open_rob = get_open_rob(rob);
-	unsigned destination, pc_entry = pc * 4;
-	if (open_rob == -1) // if no open re-order buffer we stall the issue stage
+	for (unsigned i = 0; i < issue_max; i++)
 	{
-		return;
-	}
-	int opcode = (instruction_memory[pc] >> 26) & 31;
-	if (opcode == LW || opcode == SW || opcode == SWS || opcode == LWS)
-	{
-		int open_rs = get_open_rs(load_rs);
-		if (open_rs == -1) // if no open reservation station we stall the issue stage
+		bool int_or_float = true;
+		int open_rob = get_open_rob(rob);
+		unsigned destination, pc_entry = pc * 4;
+		if (open_rob == -1) // if no open re-order buffer we stall the issue stage
 		{
 			return;
 		}
-		if (opcode == SWS || opcode == LWS)
+		int opcode = (instruction_memory[pc] >> 26) & 31;
+		if (opcode == LW || opcode == SW || opcode == SWS || opcode == LWS)
 		{
-			int_or_float = false;
+			int open_rs = get_open_rs(load_rs);
+			if (open_rs == -1) // if no open reservation station we stall the issue stage
+			{
+				return;
+			}
+			if (opcode == SWS || opcode == LWS)
+			{
+				int_or_float = false;
+			}
+			destination = ((instruction_memory[pc] >> 21) & 31);
+			unsigned vj = get_int_register(instruction_memory[pc] & 31);
+			float vjf = unsigned2float(UNDEFINED);
+			unsigned vk = UNDEFINED;
+			float vkf = unsigned2float(UNDEFINED);
+			unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
+			unsigned qk = UNDEFINED;
+			unsigned a = (instruction_memory[pc] >> 5) & 65535;
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+			write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
-		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned vj = get_int_register(instruction_memory[pc] & 31);
-		float vjf = unsigned2float(UNDEFINED);
-		unsigned vk = UNDEFINED;
-		float vkf = unsigned2float(UNDEFINED);
-		unsigned qj = UNDEFINED;
-		if (vj == UNDEFINED)
-		{
-			qj = get_q(instruction_memory[pc] & 31, int_or_float);
-		}
-		unsigned qk = UNDEFINED;
-		unsigned a = (instruction_memory[pc] >> 5) & 65535;
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
-	}
 
-	else if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == OR
-		|| opcode == AND || opcode == MULT || opcode == DIV || opcode == ADDS
-		|| opcode == SUBS || opcode == MULTS || opcode == DIVS)
-	{
-		if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
+		else if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == OR
+			|| opcode == AND || opcode == MULT || opcode == DIV || opcode == ADDS
+			|| opcode == SUBS || opcode == MULTS || opcode == DIVS)
 		{
-			int_or_float = false;
+			if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
+			{
+				int_or_float = false;
+			}
+			destination = ((instruction_memory[pc] >> 21) & 31);
+			unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
+			float vjf = get_fp_register((instruction_memory[pc] >> 16) & 31);
+			unsigned vk = get_int_register((instruction_memory[pc] >> 11) & 31);
+			float vkf = get_fp_register((instruction_memory[pc] >> 11) & 31);
+			unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+			unsigned qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
+			unsigned a = UNDEFINED;
+
+			if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == AND || opcode == OR)
+			{
+				int open_rs = get_open_rs(int_rs);
+				if (open_rs == -1) // if no open reservation station we stall the issue stage
+				{
+					return;
+				}
+				write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+			}
+			else if (opcode == ADDS || opcode == SUBS)
+			{
+				int open_rs = get_open_rs(add_rs);
+				if (open_rs == -1) // if no open reservation station we stall the issue stage
+				{
+					return;
+				}
+				write_to_rs(open_rs, 2, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+			}
+			else if (opcode == MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
+			{
+				int open_rs = get_open_rs(mult_rs);
+				if (open_rs == -1) // if no open reservation station we stall the issue stage
+				{
+					return;
+				}
+				write_to_rs(open_rs, 3, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+			}
+
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
 		}
-		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
-		float vjf = get_fp_register((instruction_memory[pc] >> 16) & 31);
-		unsigned vk = get_int_register((instruction_memory[pc] >> 11) & 31);
-		float vkf = get_fp_register((instruction_memory[pc] >> 11) & 31);
-		unsigned qj = UNDEFINED;
-		unsigned qk = UNDEFINED;
-		unsigned a = UNDEFINED;
-		
-		if (opcode == ADD || opcode == SUB || opcode == XOR || opcode == AND || opcode == OR)
+		else if (opcode == ADDI || opcode == SUBI || opcode == XORI
+			|| opcode == ORI || opcode == ANDI)
 		{
-			if (vj == UNDEFINED)
-			{
-				qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-			}
-			if (vk == UNDEFINED)
-			{
-				qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
-			}
+			destination = ((instruction_memory[pc] >> 21) & 31);
+			unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
+			float vjf = unsigned2float(UNDEFINED);
+			unsigned vk = (instruction_memory[pc] & 65535);
+			float vkf = unsigned2float(UNDEFINED);
+			unsigned qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
+			unsigned qk = UNDEFINED;
+			unsigned a = UNDEFINED;
 			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
 			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
-		else if (opcode == ADDS || opcode == SUBS)
+		else if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+			|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
 		{
-			if (vjf == unsigned2float(UNDEFINED))
-			{
-				qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-			}
-			if (vkf == unsigned2float(UNDEFINED))
-			{
-				qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
-			}
-			int open_rs = get_open_rs(add_rs);
+			destination = UNDEFINED;
+			unsigned vj = get_int_register((instruction_memory[pc] >> 21) & 31);
+			float vjf = unsigned2float(UNDEFINED);
+			unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
+			float vkf = unsigned2float(UNDEFINED);
+			unsigned qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
+			unsigned qk = UNDEFINED;
+			unsigned a = UNDEFINED;
+			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
-			write_to_rs(open_rs, 2, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
-		else if (opcode == MULT || opcode == MULTS || opcode == DIV || opcode == DIVS)
+		else if (opcode == JUMP)
 		{
-			if (opcode == MULT || opcode == DIV)
-			{
-				if (vj == UNDEFINED)
-				{
-					qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-				}
-				if (vk == UNDEFINED)
-				{
-					qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
-				}
-			}
-			else
-			{
-				if (vjf == unsigned2float(UNDEFINED))
-				{
-					qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-				}
-				if (vkf == unsigned2float(UNDEFINED))
-				{
-					qk = get_q((instruction_memory[pc] >> 11) & 31, int_or_float);
-				}
-			}
-			int open_rs = get_open_rs(mult_rs);
+			destination = UNDEFINED;
+			unsigned qj = UNDEFINED;
+			unsigned qk = UNDEFINED;
+			unsigned vj = UNDEFINED;
+			float vjf = unsigned2float(UNDEFINED);
+			unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
+			float vkf = unsigned2float(UNDEFINED);
+			unsigned a = UNDEFINED;
+			int open_rs = get_open_rs(int_rs);
 			if (open_rs == -1) // if no open reservation station we stall the issue stage
 			{
 				return;
 			}
-			write_to_rs(open_rs, 3, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
-
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+		else if (opcode == EOP)
+		{
+			destination = UNDEFINED;
+			unsigned qj = UNDEFINED;
+			unsigned qk = UNDEFINED;
+			unsigned vj = UNDEFINED;
+			float vjf = unsigned2float(UNDEFINED);
+			unsigned vk = UNDEFINED;
+			float vkf = unsigned2float(UNDEFINED);
+			unsigned a = UNDEFINED;
+			int open_rs = get_open_rs(int_rs);
+			if (open_rs == -1) // if no open reservation station we stall the issue stage
+			{
+				return;
+			}
+			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
+			write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
+		}
+		pc++;
 	}
-	else if (opcode == ADDI || opcode == SUBI || opcode == XORI
-		|| opcode == ORI || opcode == ANDI)
-	{
-		destination = ((instruction_memory[pc] >> 21) & 31);
-		unsigned vj = get_int_register((instruction_memory[pc] >> 16) & 31);
-		float vjf = unsigned2float(UNDEFINED);
-		unsigned vk = (instruction_memory[pc] & 65535);
-		float vkf = unsigned2float(UNDEFINED);
-		unsigned qj = UNDEFINED;
-		if (vj == UNDEFINED)
-		{
-			qj = get_q((instruction_memory[pc] >> 16) & 31, int_or_float);
-		}
-		unsigned qk = UNDEFINED;
-		unsigned a = UNDEFINED;
-		int open_rs = get_open_rs(int_rs);
-		if (open_rs == -1) // if no open reservation station we stall the issue stage
-		{
-			return;
-		}
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
-	}
-	else if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
-		|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
-	{
-		destination = UNDEFINED;
-		unsigned vj = get_int_register((instruction_memory[pc] >> 21) & 31);
-		float vjf = unsigned2float(UNDEFINED);
-		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
-		float vkf = unsigned2float(UNDEFINED);
-		unsigned qj = UNDEFINED;
-		if (vj == UNDEFINED)
-		{
-			qj = get_q((instruction_memory[pc] >> 21) & 31, int_or_float);
-		}
-		unsigned qk = UNDEFINED;
-		unsigned a = UNDEFINED;
-		int open_rs = get_open_rs(int_rs);
-		if (open_rs == -1) // if no open reservation station we stall the issue stage
-		{
-			return;
-		}
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
-	}
-	else if (opcode == JUMP)
-	{
-		destination = UNDEFINED;
-		unsigned qj = UNDEFINED;
-		unsigned qk = UNDEFINED;
-		unsigned vj = UNDEFINED;
-		float vjf = unsigned2float(UNDEFINED);
-		unsigned vk = (instruction_memory[pc] & 65535) + base_Address;
-		float vkf = unsigned2float(UNDEFINED);
-		unsigned a = UNDEFINED;
-		int open_rs = get_open_rs(int_rs);
-		if (open_rs == -1) // if no open reservation station we stall the issue stage
-		{
-			return;
-		}
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
-	}
-	else if (opcode == EOP)
-	{
-		destination = UNDEFINED;
-		unsigned qj = UNDEFINED;
-		unsigned qk = UNDEFINED;
-		unsigned vj = UNDEFINED;
-		float vjf = unsigned2float(UNDEFINED);
-		unsigned vk = UNDEFINED;
-		float vkf = unsigned2float(UNDEFINED);
-		unsigned a = UNDEFINED;
-		int open_rs = get_open_rs(int_rs);
-		if (open_rs == -1) // if no open reservation station we stall the issue stage
-		{
-			return;
-		}
-		write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
-		write_to_rs(open_rs, 1, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
-	}
-
-
-	pc++;
 }
 
 void sim_ooo::execute()
@@ -2021,82 +1972,85 @@ void sim_ooo::write_result()
 void sim_ooo::commit()
 {
 	//find the lowest entry
-	unsigned entry = rob[0].pc;
-	unsigned pos = 0;
-	int size = size_of_rob;
-	for (int i = 0; i < size; i++)
+	for (int i = 0; i < issue_max; i++)
 	{
-		if (rob[i].pc < entry)
+		unsigned entry = rob[0].pc;
+		unsigned pos = 0;
+		int size = size_of_rob;
+		for (int i = 0; i < size; i++)
 		{
-			entry = rob[i].pc;
-			pos = i;
-		}
-	}
-	if (rob[pos].ready)
-	{
-		unsigned opcode = (rob[pos].instruction >> 26) & 31;
-		if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
-			|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
-		{
-			if (rob[pos].value != UNDEFINED) // branch was taken
+			if (rob[i].pc < entry)
 			{
-				pc = rob[pos].value;
-				flush_rob();
-				flush_ex();
-				flush_rs();
+				entry = rob[i].pc;
+				pos = i;
 			}
 		}
-		else if (opcode == JUMP)
+		if (rob[pos].ready)
 		{
-			pc = rob[pos].value;
-		}
-		else if (opcode == SW)
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			write_memory(rob[pos].value, int_reg[reg].value);
-		}
-		else if (opcode == SWS)
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			write_memory(rob[pos].value, float2unsigned(fp_reg[reg].value));
-		}
-		else if (opcode == LW)
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			int_reg[reg].value = rob[pos].value;
-			int_reg[reg].entry = UNDEFINED;
-		}
-		else if (opcode == LWS)
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			fp_reg[reg].value = rob[pos].value_f;
-			fp_reg[reg].entry = UNDEFINED;
-		}
-		else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			fp_reg[reg].value = rob[pos].value_f;
-			fp_reg[reg].entry = UNDEFINED;
-		}
-		else if (opcode == EOP)
-		{
-			eop = true;
-			instruction_count--;
-		}
-		else
-		{
-			int reg = convert_string_to_number(rob[pos].destination);
-			int_reg[reg].value = rob[pos].value;
-			int_reg[reg].entry = UNDEFINED;
-		}
+			unsigned opcode = (rob[pos].instruction >> 26) & 31;
+			if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
+			{
+				if (rob[pos].value != UNDEFINED) // branch was taken
+				{
+					pc = rob[pos].value;
+					flush_rob();
+					flush_ex();
+					flush_rs();
+				}
+			}
+			else if (opcode == JUMP)
+			{
+				pc = rob[pos].value;
+			}
+			else if (opcode == SW)
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				write_memory(rob[pos].value, int_reg[reg].value);
+			}
+			else if (opcode == SWS)
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				write_memory(rob[pos].value, float2unsigned(fp_reg[reg].value));
+			}
+			else if (opcode == LW)
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				int_reg[reg].value = rob[pos].value;
+				int_reg[reg].entry = UNDEFINED;
+			}
+			else if (opcode == LWS)
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				fp_reg[reg].value = rob[pos].value_f;
+				fp_reg[reg].entry = UNDEFINED;
+			}
+			else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				fp_reg[reg].value = rob[pos].value_f;
+				fp_reg[reg].entry = UNDEFINED;
+			}
+			else if (opcode == EOP)
+			{
+				eop = true;
+				instruction_count--;
+			}
+			else
+			{
+				int reg = convert_string_to_number(rob[pos].destination);
+				int_reg[reg].value = rob[pos].value;
+				int_reg[reg].entry = UNDEFINED;
+			}
 
-		rob[pos] = clear_rob_entry(pos);
-		iq[pos].pc = UNDEFINED;
-		iq[pos].Issue = UNDEFINED;
-		iq[pos].Exe = UNDEFINED;
-		iq[pos].WR = UNDEFINED;
-		iq[pos].Commit = UNDEFINED;
-		instruction_count++;
+			rob[pos] = clear_rob_entry(pos);
+			iq[pos].pc = UNDEFINED;
+			iq[pos].Issue = UNDEFINED;
+			iq[pos].Exe = UNDEFINED;
+			iq[pos].WR = UNDEFINED;
+			iq[pos].Commit = UNDEFINED;
+			instruction_count++;
+		}
 	}
 }
 
@@ -2262,11 +2216,35 @@ unsigned sim_ooo::get_q(unsigned i, bool int_or_float)
 {
 	if (int_or_float)
 	{
-		return get_pending_int_register(i);
+		unsigned rob_entry = get_pending_int_register(i);
+		if (rob_entry != UNDEFINED)
+		{
+			if (rob[rob_entry].ready)
+			{
+				return UNDEFINED;
+			}
+			else
+			{
+				return rob_entry;
+			}
+		}
+		return UNDEFINED;
 	}
 	else
 	{
-		return get_pending_fp_register(i);
+		unsigned rob_entry = get_pending_fp_register(i);
+		if (rob_entry != UNDEFINED)
+		{
+			if (rob[rob_entry].ready)
+			{
+				return UNDEFINED;
+			}
+			else
+			{
+				return rob_entry;
+			}
+		}
+		return UNDEFINED;
 	}
 }
 
