@@ -1747,7 +1747,7 @@ void sim_ooo::execute()
 				if (rob[rob_entry].state == "ISSUE")
 				{
 
-					if (station_ready(add_rs[j]))//checks if we have all values necessary to compute
+					if (station_ready(load_rs[j]))//checks if we have all values necessary to compute
 					{
 						//if everything checks out then we move the instruction in the exe unit
 						rob[rob_entry].state = "EXE";
@@ -1760,6 +1760,7 @@ void sim_ooo::execute()
 						mem_ex[i].vj = load_rs[j].vj;
 						mem_ex[i].vk = load_rs[j].a;
 						mem_ex[i].pc = load_rs[j].pc;
+						load_rs[j].a = mem_ex[i].vj + mem_ex[i].vk;
 						break;
 					}
 				}
@@ -2016,7 +2017,7 @@ void sim_ooo::commit()
 	//find the lowest entry
 	clear_write_back_check();
 	clear_commit_stall();
-	for (int i = 0; i < issue_max; i++)
+	for (int i = 0; i < 1; i++)//appears to be multi issue, but single commit
 	{
 		unsigned entry = rob[0].pc;
 		unsigned pos = 0;
@@ -2167,9 +2168,12 @@ int sim_ooo::get_open_rob(read_order_buffer* rob)
 	{
 		if (!rob[i].busy)
 		{
-			station = i;
-			open_rob_entry = station;
-			return station;
+			if (!rob[i].commit_stall)
+			{
+				station = i;
+				open_rob_entry = station;
+				return station;
+			}
 		}
 	}
 	return station;
