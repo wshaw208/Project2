@@ -214,6 +214,8 @@ public:
 	void find_and_clear_rs(unsigned pc);
 
 	void clear_write_back_check();
+
+	void clear_commit_stall();
 };
 
 #endif /*SIM_OOO_H_*/

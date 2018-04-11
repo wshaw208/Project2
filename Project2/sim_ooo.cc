@@ -25,6 +25,7 @@ struct reservation_station
 	unsigned a;
 	unsigned pc;
 	bool wb = false;
+	bool cleared = false;
 };
 
 struct ex_unit
@@ -49,6 +50,7 @@ struct read_order_buffer
 	int value;
 	float value_f;
 	unsigned pc;
+	bool commit_stall;
 };
 
 struct int_register
@@ -705,13 +707,13 @@ void sim_ooo::print_registers(){
 	cout << setfill(' ') << setw(8) << "Register" << setw(22) << "Value" << setw(5) << "ROB" << endl;
         for (i=0; i< NUM_GP_REGISTERS; i++){
                 if (get_pending_int_register(i)!=UNDEFINED) 
-			cout << setfill(' ') << setw(7) << "R" << dec << i << setw(22) << "-" << setw(5) << get_pending_int_register(i) << endl;
+			cout << setfill(' ') << setw(7) << "R" << dec << i << setw(22) << "-" << setw(5) << int_reg[i].entry << endl;
                 else if (get_int_register(i)!=(int)UNDEFINED) 
 			cout << setfill(' ') << setw(7) << "R" << dec << i << setw(11) << get_int_register(i) << hex << "/0x" << setw(8) << setfill('0') << get_int_register(i) << setfill(' ') << setw(5) << "-" << endl;
         }
 	for (i=0; i< NUM_GP_REGISTERS; i++){
                 if (get_pending_fp_register(i)!=UNDEFINED) 
-			cout << setfill(' ') << setw(7) << "F" << dec << i << setw(22) << "-" << setw(5) << get_pending_fp_register(i) << endl;
+			cout << setfill(' ') << setw(7) << "F" << dec << i << setw(22) << "-" << setw(5) << fp_reg[i].entry << endl;
                 else if (get_fp_register(i)!=UNDEFINED) 
 			cout << setfill(' ') << setw(7) << "F" << dec << i << setw(11) << get_fp_register(i) << hex << "/0x" << setw(8) << setfill('0') << float2unsigned(get_fp_register(i)) << setfill(' ') << setw(5) << "-" << endl;
 	}
@@ -776,37 +778,52 @@ void sim_ooo::print_rob(){
 		{
 			good_value = false;
 		}
-
-		cout << setfill(' ') << setw(5) << to_string(i+1) << setw(6) << busy << setw(7) << ready;
-		if (good_pc)
+		if ((rob[i].instruction >> 26) == EOP)
 		{
-			cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << rob[i].pc;
+			cout << setfill(' ') << setw(5) << to_string(i + 1) << setw(6) << "no" << setw(7) << "no" << setw(12) << "-" << setw(8) << setfill(' ') << setw(10) << "-" << setw(6) << "-" << setw(12) << "-" << setw(8) << endl;
 		}
 		else
 		{
-			cout << setw(12) << "-" << setw(8);
+			cout << setfill(' ') << setw(5) << to_string(i + 1) << setw(6) << busy << setw(7) << ready;
+			if (good_pc)
+			{
+				cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << rob[i].pc;
+			}
+			else
+			{
+				cout << setw(12) << "-" << setw(8);
+			}
+			cout << setfill(' ') << setw(10) << state << setw(6);
+			unsigned opcode = (rob[i].instruction >> 26) & 31;
+			if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ
+				|| opcode == JUMP)
+			{
+				cout << "-";
+			}
+			else
+			{
+				cout << dest;
+			}
+			if (rob[i].ready && (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
+				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ
+				|| opcode == JUMP))
+			{
+				cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << (rob[i].pc + 4);
+			}
+			else
+			{
+				if (good_value)
+				{
+					cout << setw(4) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
+				}
+				else
+				{
+					cout << setw(12) << "-" << setw(8);
+				}
+			}
+			cout << endl;
 		}
-		cout << setfill(' ') << setw(10) << state << setw(6);
-		unsigned opcode = (rob[i].instruction >> 26) & 31;
-		if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
-			|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ
-			|| opcode == JUMP)
-		{
-			cout << "-";
-		}
-		else
-		{
-			cout << dest;
-		}
-		if (good_value)
-		{
-			cout << setw(4) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
-		}
-		else
-		{
-			cout << setw(12) << "-" << setw(8);
-		}
-		cout << endl;
 	}
 	cout << endl;
 }
@@ -820,86 +837,93 @@ void sim_ooo::print_reservation_stations(){
 	// print out int_rs
 	for (unsigned i = 0; i < size_of_int_rs; i++)
 	{
-		for (unsigned j = 0; j < 9; j++)
+		if (int_rs[i].opcode == EOP)
 		{
-			switch (j)
+			cout << setw(7) << int_rs[i].name << setw(6) << "no" << setw(12) << "-" << setw(12) << "-" << setw(12) << "-" << setw(6) << "-" << setw(6) << "-" << setw(6) << "-" << setw(12) << "-" << setw(8) << endl;
+		}
+		else
+		{
+			for (unsigned j = 0; j < 9; j++)
 			{
-			case 0:
-				cout << setw(7) << int_rs[i].name << setw(6);
-				break;
-			case 1:
-				if (int_rs[i].busy)
+				switch (j)
 				{
-					cout << "yes";
+				case 0:
+					cout << setw(7) << int_rs[i].name << setw(6);
+					break;
+				case 1:
+					if (int_rs[i].busy)
+					{
+						cout << "yes";
+					}
+					else
+					{
+						cout << "no";
+					}
+					break;
+				case 2:
+					if (int_rs[i].pc < 10000000)
+					{
+						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].pc << setfill(' ');
+					}
+					else
+					{
+						cout << setw(12) << "-" << setw(8);
+					}
+					break;
+				case 3:
+					if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536 && int_rs[i].vj != UNDEFINED)
+					{
+						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vj << setfill(' ');
+					}
+					else
+					{
+						cout << setw(12) << "-" << setw(8);
+					}
+					break;
+				case 4:
+					if (int_rs[i].vk < 65536 && int_rs[i].vk > -65536 && int_rs[i].vk != UNDEFINED)
+					{
+						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vk << setfill(' ');
+					}
+					else
+					{
+						cout << setw(12) << "-" << setw(8);
+					}
+					break;
+				case 5:
+					if (int_rs[i].qj < 32)
+					{
+						cout << setw(6) << to_string(int_rs[i].qj);
+					}
+					else
+					{
+						cout << setw(6) << "-";
+					}
+					break;
+				case 6:
+					if (int_rs[i].qk < 32)
+					{
+						cout << setw(6) << to_string(int_rs[i].qk);
+					}
+					else
+					{
+						cout << setw(6) << "-";
+					}
+					break;
+				case 7:
+					if (int_rs[i].dest < size_of_rob)
+					{
+						cout << setw(6) << to_string(int_rs[i].dest);
+					}
+					else
+					{
+						cout << setw(6) << "-";
+					}
+					break;
+				case 8:
+					cout << setw(12) << "-" << setw(8) << endl;
+					break;
 				}
-				else
-				{
-					cout << "no";
-				}
-				break;
-			case 2:
-				if (int_rs[i].pc < 10000000)
-				{
-					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].pc << setfill(' ');
-				}
-				else
-				{
-					cout << setw(12) << "-" << setw(8);
-				}
-				break;
-			case 3:
-				if (int_rs[i].vj < 65536 && int_rs[i].vj > -65536 && int_rs[i].vj != UNDEFINED)
-				{
-					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vj << setfill(' ');
-				}
-				else
-				{
-					cout << setw(12) << "-" << setw(8);
-				}
-				break;
-			case 4:
-				if (int_rs[i].vk < 65536 && int_rs[i].vk > -65536 && int_rs[i].vk != UNDEFINED)
-				{
-					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vk << setfill(' ');
-				}
-				else
-				{
-					cout << setw(12) << "-" << setw(8);
-				}
-				break;
-			case 5:
-				if (int_rs[i].qj < 32)
-				{
-					cout << setw(6) << to_string(int_rs[i].qj);
-				}
-				else
-				{
-					cout << setw(6) << "-" ;
-				}
-				break;
-			case 6:
-				if (int_rs[i].qk < 32)
-				{
-					cout << setw(6) << to_string(int_rs[i].qk);
-				}
-				else
-				{
-					cout << setw(6) << "-";
-				}
-				break;
-			case 7:
-				if (int_rs[i].dest < size_of_rob)
-				{
-					cout << setw(6) << to_string(int_rs[i].dest);
-				}
-				else
-				{
-					cout << setw(6) << "-";
-				}
-				break;
-			case 8:
-				cout << setw(12) << "-" << setw(8) << endl;
-				break;
 			}
 		}
 	}
@@ -1627,6 +1651,10 @@ void sim_ooo::execute()
 						//if everything checks out then we move the instruction in the exe unit
 						rob[rob_entry].state = "EXE";
 						iq[rob_entry].Exe = clock_cycles;
+						if (int_rs[i].opcode == EOP)
+						{
+							iq[rob_entry].Exe == UNDEFINED;
+						}
 						int_ex[i].busy = true;
 						int_ex[i].ttf = int_ex[i].delay;
 						int_ex[i].entry = int_rs[j].dest;
@@ -1636,7 +1664,7 @@ void sim_ooo::execute()
 							|| int_rs[j].opcode == BGTZ || int_rs[j].opcode == BLEZ || int_rs[j].opcode == BGEZ
 							|| int_rs[j].opcode == JUMP) // if a branch instruction write address to vk for computation
 						{
-							int_ex[j].vk = int_rs[j].a;
+							int_ex[i].vk = int_rs[j].a;
 						}
 						else
 						{
@@ -1987,6 +2015,7 @@ void sim_ooo::commit()
 {
 	//find the lowest entry
 	clear_write_back_check();
+	clear_commit_stall();
 	for (int i = 0; i < issue_max; i++)
 	{
 		unsigned entry = rob[0].pc;
@@ -2020,42 +2049,55 @@ void sim_ooo::commit()
 			}
 			else if (opcode == SW)
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
+				int reg = get_register_value(rob[pos].destination);
 				write_memory(rob[pos].value, int_reg[reg].value);
 			}
 			else if (opcode == SWS)
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
+				int reg = get_register_value(rob[pos].destination);
 				write_memory(rob[pos].value, float2unsigned(fp_reg[reg].value));
 			}
 			else if (opcode == LW)
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
-				int_reg[reg].value = rob[pos].value;
-				int_reg[reg].entry = UNDEFINED;
+				int reg = get_register_value(rob[pos].destination);
+				if (int_reg[reg].entry == pos)
+				{
+					int_reg[reg].value = rob[pos].value;
+					int_reg[reg].entry = UNDEFINED;
+				}
 			}
 			else if (opcode == LWS)
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
-				fp_reg[reg].value = rob[pos].value_f;
-				fp_reg[reg].entry = UNDEFINED;
+				int reg = get_register_value(rob[pos].destination);
+				if (fp_reg[reg].entry == pos)
+				{
+					fp_reg[reg].value = rob[pos].value_f;
+					fp_reg[reg].entry = UNDEFINED;
+				}
 			}
 			else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
-				fp_reg[reg].value = rob[pos].value_f;
-				fp_reg[reg].entry = UNDEFINED;
+				int reg = get_register_value(rob[pos].destination);
+				if (fp_reg[reg].entry == pos)
+				{
+					fp_reg[reg].value = rob[pos].value_f;
+					fp_reg[reg].entry = UNDEFINED;
+				}
 			}
 			else if (opcode == EOP)
 			{
 				eop = true;
 				instruction_count--;
+				clock_cycles--;
 			}
 			else
 			{
-				int reg = convert_string_to_number(rob[pos].destination);
-				int_reg[reg].value = rob[pos].value;
-				int_reg[reg].entry = UNDEFINED;
+				int reg = get_register_value(rob[pos].destination);
+				if (int_reg[reg].entry == pos)
+				{
+					int_reg[reg].value = rob[pos].value;
+					int_reg[reg].entry = UNDEFINED;
+				}
 			}
 
 			rob[pos] = clear_rob_entry(pos);
@@ -2095,7 +2137,7 @@ int sim_ooo::get_open_rs(reservation_station *rs)
 	}
 	for (int i = 0; i < size; i++)
 	{
-		if (!rs[i].busy)
+		if (!rs[i].busy && !rs[i].cleared)
 		{
 			station = i;
 			break;
@@ -2113,9 +2155,12 @@ int sim_ooo::get_open_rob(read_order_buffer* rob)
 	{
 		if (!rob[i].busy)
 		{
-			station = i;
-			open_rob_entry = station;
-			return station;
+			if (!rob[i].commit_stall)
+			{
+				station = i;
+				open_rob_entry = station;
+				return station;
+			}			
 		}
 	}
 	for (unsigned i = 0; i < open_rob_entry; i++)
@@ -2151,6 +2196,11 @@ void sim_ooo::write_to_rob_issue(unsigned instruction, unsigned open_rob, unsign
 	rob[open_rob].destination = des + to_string(destination);
 	rob[open_rob].state = "ISSUE";
 	iq[open_rob].Issue = clock_cycles;
+	if ((instruction >> 26) == EOP)
+	{
+		iq[open_rob].pc = UNDEFINED;
+		iq[open_rob].Issue = UNDEFINED;
+	}
 	return;
 }
 
@@ -2564,6 +2614,10 @@ void sim_ooo::write_rob(int answer, unsigned entry)
 	rob[entry].value = answer;
 	rob[entry].state = "WR";
 	iq[entry].WR = clock_cycles;
+	if ((rob[entry].instruction >> 26) == EOP)
+	{
+		iq[entry].WR = UNDEFINED;
+	}
 	rob[entry].ready = true;
 }
 
@@ -2606,6 +2660,7 @@ void sim_ooo::flush_rob()
 		rob[i].state = "";
 		rob[i].value = UNDEFINED;
 		rob[i].value_f = (float)UNDEFINED;
+		rob[i].commit_stall = false;
 		open_rob_entry = 0;
 
 		iq[i].pc = UNDEFINED;
@@ -2628,6 +2683,7 @@ read_order_buffer sim_ooo::clear_rob_entry(unsigned entry)
 	empty.state = "";
 	empty.value = UNDEFINED;
 	empty.value_f = (float)UNDEFINED;
+	empty.commit_stall = true;
 	return empty;
 }
 
@@ -2700,6 +2756,7 @@ reservation_station sim_ooo::clear_rs(std::string name)
 	rs.vjf = unsigned2float(UNDEFINED);
 	rs.vkf = unsigned2float(UNDEFINED);
 	rs.wb = false;
+	rs.cleared = true;
 	return rs;
 }
 
@@ -2750,20 +2807,33 @@ void sim_ooo::clear_write_back_check()
 	for (i = 0; i < size; i++)
 	{
 		int_rs[i].wb = false;
+		int_rs[i].cleared = false;
 	}
 	size = size_of_add_rs;
 	for (i = 0; i < size; i++)
 	{
 		add_rs[i].wb = false;
+		add_rs[i].cleared = false;
 	}
 	size = size_of_mult_rs;
 	for (i = 0; i < size; i++)
 	{
 		mult_rs[i].wb = false;
+		mult_rs[i].cleared = false;
 	}
 	size = size_of_load_rs;
 	for (i = 0; i < size; i++)
 	{
 		load_rs[i].wb = false;
+		load_rs[i].cleared = false;
+	}
+}
+
+void sim_ooo::clear_commit_stall()
+{
+	int size = size_of_rob;
+	for (int i = 0; i < size; i++)
+	{
+		rob[i].commit_stall = false;
 	}
 }
