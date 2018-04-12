@@ -566,6 +566,11 @@ void sim_ooo::run(unsigned cycles)
 		while (!eop)
 		{
 			commit();
+			if (eop)
+			{
+				clock_cycles++;
+				break;
+			}
 			write_result();
 			execute();
 			issue();
@@ -578,6 +583,11 @@ void sim_ooo::run(unsigned cycles)
 		for (i = 0; i<cycles; i++)
 		{
 			commit();
+			if (eop)
+			{
+				clock_cycles++;
+				break;
+			}
 			write_result();
 			execute();
 			issue();
@@ -809,13 +819,13 @@ void sim_ooo::print_rob(){
 				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ
 				|| opcode == JUMP))
 			{
-				cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << (rob[i].pc + 4);
+				cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << (rob[i].value);
 			}
 			else
 			{
 				if (good_value)
 				{
-					cout << setw(4) << hex << "0x" << setw(2) << setfill('0') << rob[i].value;
+					cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << rob[i].value;
 				}
 				else
 				{
@@ -837,7 +847,8 @@ void sim_ooo::print_reservation_stations(){
 	// print out int_rs
 	for (unsigned i = 0; i < size_of_int_rs; i++)
 	{
-		if (int_rs[i].opcode == EOP)
+		unsigned opcode = int_rs[i].opcode;
+		if (opcode == EOP)
 		{
 			cout << setw(7) << int_rs[i].name << setw(6) << "no" << setw(12) << "-" << setw(12) << "-" << setw(12) << "-" << setw(6) << "-" << setw(6) << "-" << setw(6) << "-" << setw(12) << "-" << setw(8) << endl;
 		}
@@ -881,7 +892,7 @@ void sim_ooo::print_reservation_stations(){
 					}
 					break;
 				case 4:
-					if (int_rs[i].vk < 65536 && int_rs[i].vk > -65536 && int_rs[i].vk != UNDEFINED)
+					if (int_rs[i].vk < 65536 && int_rs[i].vk > -65536 && int_rs[i].vk != UNDEFINED && opcode != ADDI && opcode != SUBI)
 					{
 						cout << setw(4) << hex << "0x" << setw(8) << setfill('0') << int_rs[i].vk << setfill(' ');
 					}
@@ -1476,10 +1487,6 @@ void sim_ooo::issue()
 			{
 				return;
 			}
-			if (opcode == SWS || opcode == LWS)
-			{
-				int_or_float = false;
-			}
 			destination = ((instruction_memory[pc] >> 21) & 31);
 			unsigned vj = get_int_register(instruction_memory[pc] & 31);
 			float vjf = unsigned2float(UNDEFINED);
@@ -1488,6 +1495,10 @@ void sim_ooo::issue()
 			unsigned qj = get_q(instruction_memory[pc] & 31, int_or_float);
 			unsigned qk = UNDEFINED;
 			unsigned a = (instruction_memory[pc] >> 5) & 65535;
+			if (opcode == SWS || opcode == LWS)
+			{
+				int_or_float = false;
+			}
 			write_to_rob_issue(instruction_memory[pc], open_rob, pc_entry, destination, int_or_float); // writes the instruction to the rob
 			write_to_rs(open_rs, 4, opcode, int_or_float, vj, vk, vjf, vkf, qj, qk, pc_entry, a, open_rob);
 		}
@@ -1653,7 +1664,7 @@ void sim_ooo::execute()
 						iq[rob_entry].Exe = clock_cycles;
 						if (int_rs[i].opcode == EOP)
 						{
-							iq[rob_entry].Exe == UNDEFINED;
+							iq[rob_entry].Exe = UNDEFINED;
 						}
 						int_ex[i].busy = true;
 						int_ex[i].ttf = int_ex[i].delay;
@@ -2036,17 +2047,24 @@ void sim_ooo::commit()
 			if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
 				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
 			{
-				if (rob[pos].value != UNDEFINED) // branch was taken
+				if (rob[pos].value != (rob[pos].pc + 4)) // branch was taken
 				{
-					pc = rob[pos].value;
+					pc = (rob[pos].value - 4) / 4;
 					flush_rob();
 					flush_ex();
 					flush_rs();
+					if ((instruction_memory[pc] >> 26) == (UNDEFINED & 31)) // if we clear everything and the pc now points to a null instruction
+					{
+						eop = true;
+						flush_rob();
+						flush_ex();
+						flush_rs();
+					}
 				}
 			}
 			else if (opcode == JUMP)
 			{
-				pc = rob[pos].value;
+				pc = (rob[pos].value - 4) / 4;
 			}
 			else if (opcode == SW)
 			{
@@ -2066,6 +2084,10 @@ void sim_ooo::commit()
 					int_reg[reg].value = rob[pos].value;
 					int_reg[reg].entry = UNDEFINED;
 				}
+				else if ((rob[pos].pc < rob[fp_reg[reg].entry].pc))
+				{
+					int_reg[reg].value = rob[pos].value;
+				}
 			}
 			else if (opcode == LWS)
 			{
@@ -2074,6 +2096,10 @@ void sim_ooo::commit()
 				{
 					fp_reg[reg].value = rob[pos].value_f;
 					fp_reg[reg].entry = UNDEFINED;
+				}
+				else if ((rob[pos].pc < rob[fp_reg[reg].entry].pc))
+				{
+					fp_reg[reg].value = rob[pos].value_f;
 				}
 			}
 			else if (opcode == ADDS || opcode == SUBS || opcode == MULTS || opcode == DIVS)
@@ -2084,12 +2110,19 @@ void sim_ooo::commit()
 					fp_reg[reg].value = rob[pos].value_f;
 					fp_reg[reg].entry = UNDEFINED;
 				}
+				else if ((rob[pos].pc < rob[fp_reg[reg].entry].pc))
+				{
+					fp_reg[reg].value = rob[pos].value_f;
+				}
 			}
 			else if (opcode == EOP)
 			{
 				eop = true;
 				instruction_count--;
 				clock_cycles--;
+				flush_rob();
+				flush_ex();
+				flush_rs();
 			}
 			else
 			{
@@ -2098,6 +2131,10 @@ void sim_ooo::commit()
 				{
 					int_reg[reg].value = rob[pos].value;
 					int_reg[reg].entry = UNDEFINED;
+				}
+				else if ((rob[pos].pc < rob[fp_reg[reg].entry].pc))
+				{
+					int_reg[reg].value = rob[pos].value;
 				}
 			}
 
@@ -2369,41 +2406,65 @@ int sim_ooo::compute_result_int(ex_unit ex)
 	case BEQZ:
 		if (ex.vj == 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case BNEZ:
 		if (ex.vj != 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case BLTZ:
 		if (ex.vj < 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case BGTZ:
 		if (ex.vj > 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case BLEZ:
 		if (ex.vj <= 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case BGEZ:
 		if (ex.vj >= 0)
 		{
-			answer = ex.vk;
+			answer = (ex.vk * 4) + 4;
+		}
+		else
+		{
+			answer = ex.pc + 4;
 		}
 		break;
 	case JUMP:
-		answer = ex.vk;
+		answer = (ex.vk * 4) + 4;
 		break;
 	case MULT:
 		answer = ex.vj * ex.vk;
