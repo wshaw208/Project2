@@ -121,7 +121,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sim_ooo.cc" />
-    <ClCompile Include="testcase4.cc" />
+    <ClCompile Include="testcase5.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sim_ooo.h" />

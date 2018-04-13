@@ -29,7 +29,7 @@
     <ClCompile Include="sim_ooo.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="testcase4.cc">
+    <ClCompile Include="testcase5.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

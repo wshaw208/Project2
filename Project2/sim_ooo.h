@@ -57,6 +57,7 @@ class sim_ooo{
 	unsigned issue_max, open_rob_entry;
 	unsigned size_of_rob, size_of_int_rs, size_of_add_rs, size_of_mult_rs, size_of_load_rs,
 		size_of_int_ex, size_of_add_ex, size_of_mult_ex, size_of_div_ex, size_of_mem_ex;
+	unsigned instruction_log_length, final_pc;
 public:
 
 	/* Instantiates the simulator
@@ -216,6 +217,10 @@ public:
 	void clear_write_back_check();
 
 	void clear_commit_stall();
+
+	void add_il(unsigned pc);
+
+	void write_to_il(unsigned pc, unsigned stage);
 };
 
 #endif /*SIM_OOO_H_*/

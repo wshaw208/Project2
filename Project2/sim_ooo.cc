@@ -88,6 +88,7 @@ int_register* int_reg;
 fp_register* fp_reg;
 
 instruction_q* iq;
+instruction_q* il;
 
 /* convert a float into an unsigned */
 inline unsigned float2unsigned(float value){
@@ -173,6 +174,7 @@ sim_ooo::sim_ooo(unsigned mem_size,
 	size_of_rob = rob_size;
 	iq = new instruction_q[size_of_rob];
 	flush_rob();
+	instruction_log_length = 0;
 }
 	
 sim_ooo::~sim_ooo()
@@ -1325,7 +1327,73 @@ void sim_ooo::print_pending_instructions(){
 
 void sim_ooo::print_log()
 {
+	cout << "EXECUTION LOG" << endl;
+	cout << setfill(' ');
+	cout << setw(10) << "PC" << setw(7) << "Issue" << setw(7) << "Exe" << setw(7) << "WR" << setw(7) << "Commit";
+	cout << endl;
 
+	for (unsigned i = 0; i < instruction_log_length; i++)
+	{
+		for (unsigned j = 0; j < 5; j++)
+		{
+			if (il[i].pc < final_pc)
+			{
+				switch (j)
+				{
+				case 0:
+					if (il[i].pc != UNDEFINED)
+					{
+						cout << setw(2) << hex << "0x" << setw(8) << setfill('0') << il[i].pc << setfill(' ');
+					}
+					else
+					{
+						cout << setw(10) << "-";
+					}
+					break;
+				case 1:
+					if (il[i].Issue < clock_cycles)
+					{
+						cout << setw(7) << to_string(il[i].Issue);
+					}
+					else
+					{
+						cout << setw(7) << "-";
+					}
+					break;
+				case 2:
+					if (il[i].Exe < clock_cycles)
+					{
+						cout << setw(7) << to_string(il[i].Exe);
+					}
+					else
+					{
+						cout << setw(7) << "-";
+					}
+					break;
+				case 3:
+					if (il[i].WR < clock_cycles)
+					{
+						cout << setw(7) << to_string(il[i].WR);
+					}
+					else
+					{
+						cout << setw(7) << "-";
+					}
+					break;
+				case 4:
+					if (il[i].Commit < clock_cycles)
+					{
+						cout << setw(7) << to_string(il[i].Commit) << endl;
+					}
+					else
+					{
+						cout << setw(7) << "-" << endl;
+					}
+					break;
+				}
+			}
+		}
+	}
 }
 
 float sim_ooo::get_IPC()
@@ -1662,6 +1730,7 @@ void sim_ooo::execute()
 						//if everything checks out then we move the instruction in the exe unit
 						rob[rob_entry].state = "EXE";
 						iq[rob_entry].Exe = clock_cycles;
+						write_to_il(int_rs[j].pc, 2);
 						if (int_rs[i].opcode == EOP)
 						{
 							iq[rob_entry].Exe = UNDEFINED;
@@ -1719,6 +1788,7 @@ void sim_ooo::execute()
 						//if everything checks out then we move the instruction in the exe unit
 						rob[rob_entry].state = "EXE";
 						iq[rob_entry].Exe = clock_cycles;
+						write_to_il(add_rs[j].pc, 2);
 						add_ex[i].busy = true;
 						add_ex[i].ttf = add_ex[i].delay;
 						add_ex[i].entry = add_rs[j].dest;
@@ -1763,6 +1833,7 @@ void sim_ooo::execute()
 						//if everything checks out then we move the instruction in the exe unit
 						rob[rob_entry].state = "EXE";
 						iq[rob_entry].Exe = clock_cycles;
+						write_to_il(load_rs[j].pc, 2);
 						mem_ex[i].busy = true;
 						mem_ex[i].ttf = mem_ex[i].delay;
 						mem_ex[i].entry = load_rs[j].dest;
@@ -1809,6 +1880,7 @@ void sim_ooo::execute()
 							//if everything checks out then we move the instruction in the exe unit
 							rob[rob_entry].state = "EXE";
 							iq[rob_entry].Exe = clock_cycles;
+							write_to_il(mult_rs[j].pc, 2);
 							mult_ex[i].busy = true;
 							mult_ex[i].ttf = mult_ex[i].delay;
 							mult_ex[i].entry = mult_rs[j].dest;
@@ -1856,6 +1928,7 @@ void sim_ooo::execute()
 							//if everything checks out then we move the instruction in the exe unit
 							rob[rob_entry].state = "EXE";
 							iq[rob_entry].Exe = clock_cycles;
+							write_to_il(mult_rs[j].pc, 2);
 							div_ex[i].busy = true;
 							div_ex[i].ttf = div_ex[i].delay;
 							div_ex[i].entry = mult_rs[j].dest;
@@ -1943,6 +2016,7 @@ void sim_ooo::write_result()
 				write_rob(answer, int_ex[i].entry);
 			}
 			find_and_clear_rs(int_ex[i].pc);
+			write_to_il(int_ex[i].pc, 3);
 		}
 	}
 	size = size_of_add_ex;
@@ -1959,6 +2033,7 @@ void sim_ooo::write_result()
 			write_rs(answer, add_ex[i].entry);
 			write_rob(answer, add_ex[i].entry);
 			find_and_clear_rs(add_ex[i].pc);
+			write_to_il(add_ex[i].pc, 3);
 		}
 	}
 	size = size_of_mem_ex;
@@ -1987,6 +2062,7 @@ void sim_ooo::write_result()
 				write_rob(answer, mem_ex[i].entry);
 			}
 			find_and_clear_rs(mem_ex[i].pc);
+			write_to_il(mem_ex[i].pc, 3);
 		}
 	}
 	size = size_of_mult_ex;
@@ -2003,6 +2079,7 @@ void sim_ooo::write_result()
 			write_rs(answer, mult_ex[i].entry);
 			write_rob(answer, mult_ex[i].entry);
 			find_and_clear_rs(mult_ex[i].pc);
+			write_to_il(mult_ex[i].pc, 3);
 		}
 	}
 	size = size_of_div_ex;
@@ -2019,6 +2096,7 @@ void sim_ooo::write_result()
 			write_rs(answer, div_ex[i].entry);
 			write_rob(answer, div_ex[i].entry);
 			find_and_clear_rs(div_ex[i].pc);
+			write_to_il(div_ex[i].pc, 3);
 		}
 	}
 }
@@ -2043,6 +2121,7 @@ void sim_ooo::commit()
 		}
 		if (rob[pos].ready)
 		{
+			write_to_il(rob[pos].pc, 4);
 			unsigned opcode = (rob[pos].instruction >> 26) & 31;
 			if (opcode == BEQZ || opcode == BNEZ || opcode == BLTZ
 				|| opcode == BGTZ || opcode == BLEZ || opcode == BGEZ)
@@ -2059,6 +2138,7 @@ void sim_ooo::commit()
 						flush_rob();
 						flush_ex();
 						flush_rs();
+						final_pc = rob[pos].pc;
 					}
 				}
 			}
@@ -2123,6 +2203,15 @@ void sim_ooo::commit()
 				flush_rob();
 				flush_ex();
 				flush_rs();
+				// correction for eop in instruction log
+				instruction_log_length--;
+				instruction_q* new_log = new instruction_q[instruction_log_length]; // make new instruction log that is one longer
+				for (int i = 0; i < instruction_log_length; i++) // copy the old log over to the new one
+				{
+					new_log[i] = il[i];
+				}
+				il = new_log;
+				final_pc = rob[pos].pc;
 			}
 			else
 			{
@@ -2231,12 +2320,14 @@ void sim_ooo::write_to_rob_issue(unsigned instruction, unsigned open_rob, unsign
 	}
 	rob[open_rob].pc = pc;
 	iq[open_rob].pc = pc;
+	add_il(pc);
 	rob[open_rob].busy = true;
 	rob[open_rob].ready = false;
 	rob[open_rob].instruction = instruction;
 	rob[open_rob].destination = des + to_string(destination);
 	rob[open_rob].state = "ISSUE";
 	iq[open_rob].Issue = clock_cycles;
+	write_to_il(pc, 1);
 	if ((instruction >> 26) == EOP)
 	{
 		iq[open_rob].pc = UNDEFINED;
@@ -2900,5 +2991,46 @@ void sim_ooo::clear_commit_stall()
 	for (int i = 0; i < size; i++)
 	{
 		rob[i].commit_stall = false;
+	}
+}
+
+void sim_ooo::add_il(unsigned pc)
+{
+	instruction_q* new_log = new instruction_q[instruction_log_length + 1]; // make new instruction log that is one longer
+	for (int i = 0; i < instruction_log_length; i++) // copy the old log over to the new one
+	{
+		new_log[i] = il[i];
+	}
+	
+	new_log[instruction_log_length].pc = pc;
+	new_log[instruction_log_length].Issue = clock_cycles;
+	il = new_log;
+	instruction_log_length++;
+}
+
+void sim_ooo::write_to_il(unsigned pc, unsigned stage)
+{
+	int i;
+	for (i = instruction_log_length - 1; i >= 0; i--)
+	{
+		if (il[i].pc == pc) // find last entry that is equal and then stop searching
+		{
+			break;
+		}
+	}
+	switch (stage)
+	{
+	case 1:
+		il[i].Issue = clock_cycles;
+		break;
+	case 2:
+		il[i].Exe = clock_cycles;
+		break;
+	case 3:
+		il[i].WR = clock_cycles;
+		break;
+	case 4:
+		il[i].Commit = clock_cycles;
+		break;
 	}
 }
