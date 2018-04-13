@@ -117,11 +117,15 @@
   <ItemGroup>
     <None Include="asm\code_ooo.asm" />
     <None Include="asm\code_ooo2.asm" />
+    <None Include="asm\code_ooo3.asm" />
+    <None Include="asm\code_ooo4.asm" />
+    <None Include="asm\code_ooo5.asm" />
+    <None Include="asm\sort.asm" />
     <None Include="Makefile" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sim_ooo.cc" />
-    <ClCompile Include="testcase5.cc" />
+    <ClCompile Include="testcase6.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sim_ooo.h" />

@@ -27,7 +27,7 @@ int main(int argc, char **argv){
 	unsigned i;
 
 	// instantiates sim_ooo with a 1MB data memory
-	sim_ooo *ooo = new sim_ooo(1024*1024,	//memory size
+	sim_ooo *ooo = new sim_ooo(1024*1024,	//memory size 
 				   6,           //rob size
 				   1, 2, 2, 2); //int, add, mult, load reservation stations
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv){
 	//initialize general purpose registers
 	ooo->set_int_register(1, 10);
 	ooo->set_int_register(2, 20);
-	ooo->set_int_register(3, 0);
+	ooo->set_int_register(3, 10);
 	for (i=0; i<11; i++) ooo->set_fp_register(i, (float)i*10.0);
 
 	//initialize data memory and prints its content (for the specified address ranges)

@@ -24,12 +24,24 @@
     <None Include="asm\code_ooo2.asm">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="asm\code_ooo3.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="asm\code_ooo4.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="asm\code_ooo5.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="asm\sort.asm">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sim_ooo.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="testcase5.cc">
+    <ClCompile Include="testcase6.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

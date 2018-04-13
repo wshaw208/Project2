@@ -27,9 +27,10 @@ int main(int argc, char **argv){
 	unsigned i;
 
 	// instantiates sim_ooo with a 1MB data memory
-	sim_ooo *ooo = new sim_ooo(1024*1024,	//memory size
-				   6,           //rob size
-				   1, 2, 2, 2); //int, add, mult, load reservation stations
+	sim_ooo *ooo = new sim_ooo(1024*1024, 
+				   6,
+				   1, 2, 2, 2,
+			           4);
 
 	//initialize execution units
         ooo->init_exec_unit(INTEGER, 2, 1);

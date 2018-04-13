@@ -24,55 +24,54 @@ inline float unsigned2float(unsigned value){
 
 int main(int argc, char **argv){
 
-	unsigned i;
+	unsigned i, j;
 
 	// instantiates sim_ooo with a 1MB data memory
-	sim_ooo *ooo = new sim_ooo(1024*1024,	//memory size
+	sim_ooo *ooo = new sim_ooo(1024*1024,	//memory size 
 				   6,           //rob size
-				   1, 2, 2, 2); //int, add, mult, load reservation stations
-
+				   3, 2, 2, 2,  //int, add, mult, load reservation stations
+				   2); 		//issue width
+			
 	//initialize execution units
-        ooo->init_exec_unit(INTEGER, 2, 1);
-        ooo->init_exec_unit(ADDER, 2, 2);
+        ooo->init_exec_unit(INTEGER, 3, 2);
+        ooo->init_exec_unit(ADDER, 3, 2);
         ooo->init_exec_unit(MULTIPLIER, 10, 1);
         ooo->init_exec_unit(DIVIDER, 40, 1);
-        ooo->init_exec_unit(MEMORY, 1, 1);
+        ooo->init_exec_unit(MEMORY, 5, 1);
 
 	//loads program in instruction memory at address 0x00000000
-	ooo->load_program("asm/code_ooo.asm", 0x00000000);
+	ooo->load_program("asm/sort.asm", 0x00000000);
 
 	//initialize general purpose registers
-	ooo->set_int_register(1, 10);
-	ooo->set_int_register(2, 20);
-	ooo->set_int_register(3, 0);
-	for (i=0; i<11; i++) ooo->set_fp_register(i, (float)i*10.0);
+	ooo->set_int_register(7, 0x80000000);
 
-	//initialize data memory and prints its content (for the specified address ranges)
-	ooo->write_memory(0x14,float2unsigned(10.0));
-	ooo->write_memory(0x28,float2unsigned(30.0));
-	
+        //initialize data memory 
+        for (i = 0xA000, j=12; i<0xA030; i+=4, j-=1) ooo->write_memory(i,float2unsigned((float)(j)));
+
 	cout << "\nBEFORE PROGRAM EXECUTION..." << endl;
 	cout << "======================================================================" << endl << endl;
 	
 	//prints the value of the memory and registers
 	ooo->print_registers();
-	ooo->print_memory(0x0, 0x30);
+	ooo->print_memory(0xA000, 0xA030);
+	ooo->print_memory(0xB000, 0xB030);
 
 	// executes the program	
 	cout << "\n*****************************" << endl;
 	cout << "STARTING THE PROGRAM..." << endl;
 	cout << "*****************************" << endl << endl;
 
-	// first 20 clock cycles
-	cout << "First 20 clock cycles: inspecting the registers at each clock cycle..." << endl;
+	/* NO cycle-by-cycle execution for this test case
+	cout << "First 30 clock cycles: inspecting the registers at each clock cycle..." << endl;
 	cout << "======================================================================" << endl << endl;
 
-	for (i=0; i<20; i++){
+	for (i=0; i<70; i++){
 		cout << "CLOCK CYCLE #" << dec << i << endl;
 		ooo->run(1);
 		ooo->print_status();
 		cout << endl;
 	}
+	*/
 
 	// runs program to completion
 	cout << "EXECUTING PROGRAM TO COMPLETION..." << endl << endl;
@@ -82,8 +81,9 @@ int main(int argc, char **argv){
 	cout << "===================" << endl << endl;
 
 	//prints the value of registers and data memory
-	ooo->print_status();
-	ooo->print_memory(0x0, 0x30);
+	ooo->print_registers();
+	ooo->print_memory(0xA000, 0xA030);
+	ooo->print_memory(0xB000, 0xB030);
 	cout << endl;
 
 	//print the execution log
